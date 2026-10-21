@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import api from '../services/api';
 import DepartmentBadge from '../components/DepartmentBadge';
+import TaskDetailModal from '../components/TaskDetailModal';
 import { 
   PlusCircle, 
   Trash2, 
@@ -10,8 +11,28 @@ import {
   Share2, 
   AlertCircle, 
   CheckCircle2, 
-  Loader2 
+  Loader2,
+  Sparkles,
+  Eye
 } from 'lucide-react';
+
+const STANDARD_BUMP_TEMPLATE = `📢 [YÊU CẦU BUMP BÀI TIÊU CHUẨN]
+━━━━━━━━━━━━━━━━━━━━━━━━━━
+❤️ THẢ CẢM XÚC:
+   • React bài đăng (Tuyệt đối KHÔNG thả Like 👍, Buồn 😢, Phẫn nộ 😡). Ưu tiên: Thả Tim ❤️, Thương thương 🥰.
+
+💬 BÌNH LUẬN:
+   • Để lại ít nhất 3 bình luận có nghĩa, phù hợp nội dung bài viết (KHÔNG spam từ vô nghĩa, KHÔNG chỉ gửi icon).
+
+👥 TAG BẠN BÈ:
+   • Tag ít nhất 4 bạn bè không nằm trong danh sách CTV, BCH Đoàn trường.
+   • Gắn thẻ Nêu bật (@highlight / @mọi người).
+
+📢 RIÊNG BAN TRUYỀN THÔNG:
+   • Tag ít nhất 4 bạn bè + Chia sẻ (up) bài viết lên Story hoặc Trang cá nhân (để chế độ Công khai).
+
+🎯 CHỈ TIÊU KÊU GỌI:
+   • Toàn thể CTV, BCH tích cực vận động, kêu gọi thêm 10 bạn bè thả tim và tương tác bài đăng.`;
 
 export default function AdminTasksPage() {
   const [tasks, setTasks] = useState([]);
@@ -19,6 +40,7 @@ export default function AdminTasksPage() {
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [alertMsg, setAlertMsg] = useState(null);
+  const [selectedTaskForDetail, setSelectedTaskForDetail] = useState(null);
 
   // Form states
   const [title, setTitle] = useState('');
@@ -189,16 +211,41 @@ export default function AdminTasksPage() {
           </div>
 
           <div>
-            <label className="block text-xs font-bold text-slate-700 uppercase mb-1">
-              Hướng dẫn tương tác / Yêu cầu cụ thể
-            </label>
+            <div className="flex flex-wrap items-center justify-between gap-2 mb-1.5">
+              <label className="block text-xs font-bold text-slate-700 uppercase">
+                Hướng dẫn tương tác / Yêu cầu cụ thể
+              </label>
+              <div className="flex items-center space-x-2">
+                <button
+                  type="button"
+                  onClick={() => setDescription(STANDARD_BUMP_TEMPLATE)}
+                  className="inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-extrabold bg-red-50 text-red-700 hover:bg-red-100 border border-red-200 transition-colors shadow-2xs"
+                  title="Điền sẵn mẫu thông báo Bump bài chuẩn của Đoàn trường"
+                >
+                  <Sparkles className="w-3.5 h-3.5 mr-1 text-red-600" />
+                  Áp Dụng Mẫu Bump Tiêu Chuẩn (1 Chạm)
+                </button>
+                {description && (
+                  <button
+                    type="button"
+                    onClick={() => setDescription('')}
+                    className="text-[11px] font-bold text-slate-400 hover:text-slate-600 px-1.5 py-0.5 hover:underline"
+                  >
+                    Xóa trắng
+                  </button>
+                )}
+              </div>
+            </div>
             <textarea
-              rows={2}
+              rows={6}
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               placeholder="VD: Yêu cầu thả tim, để lại 1 bình luận cổ vũ và share công khai kèm hashtag #DoanTruong..."
-              className="w-full px-4 py-2 rounded-xl border border-slate-200 text-sm focus:ring-2 focus:ring-red-500 focus:outline-none"
+              className="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-xs sm:text-sm font-normal leading-relaxed focus:ring-2 focus:ring-red-500 focus:outline-none"
             />
+            <p className="mt-1 text-[11px] text-slate-400 italic">
+              💡 Bấm nút đỏ ở trên để tự động điền mẫu tiêu chuẩn, sau đó bạn có thể tự do chỉnh sửa thêm bớt tùy ý.
+            </p>
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -312,7 +359,14 @@ export default function AdminTasksPage() {
                       <span className="font-bold text-green-600">{task.approvedCount || 0}</span> duyệt / 
                       <span className="font-bold text-blue-600 ml-1">{task.pendingCount || 0}</span> chờ
                     </td>
-                    <td className="px-4 py-3.5 text-right whitespace-nowrap">
+                    <td className="px-4 py-3.5 text-right whitespace-nowrap space-x-1">
+                      <button
+                        onClick={() => setSelectedTaskForDetail(task)}
+                        className="p-1.5 text-slate-500 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                        title="Xem chi tiết nội dung task"
+                      >
+                        <Eye className="w-4 h-4" />
+                      </button>
                       <button
                         onClick={() => handleDelete(task.id)}
                         className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
@@ -328,6 +382,13 @@ export default function AdminTasksPage() {
           </div>
         )}
       </div>
+
+      {/* Task Detail Modal */}
+      <TaskDetailModal
+        task={selectedTaskForDetail}
+        isOpen={!!selectedTaskForDetail}
+        onClose={() => setSelectedTaskForDetail(null)}
+      />
     </div>
   );
 }

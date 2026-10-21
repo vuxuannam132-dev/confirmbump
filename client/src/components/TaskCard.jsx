@@ -1,6 +1,7 @@
-import React from 'react';
+import React, { useState } from 'react';
 import DepartmentBadge from './DepartmentBadge';
 import StatusBadge from './StatusBadge';
+import TaskDetailModal from './TaskDetailModal';
 import { 
   ExternalLink, 
   Upload, 
@@ -10,10 +11,12 @@ import {
   AlertCircle,
   Share2,
   CheckCircle2,
-  Clock
+  Clock,
+  Eye
 } from 'lucide-react';
 
 export default function TaskCard({ task, onOpenSubmitModal, onDeleteTask, isAdminTong }) {
+  const [showDetailModal, setShowDetailModal] = useState(false);
   // Platform configuration
   let platformBg = 'bg-[#1877F2] text-white';
   let platformLabel = 'Facebook';
@@ -79,20 +82,47 @@ export default function TaskCard({ task, onOpenSubmitModal, onDeleteTask, isAdmi
           </div>
 
           {/* Task Title */}
-          <h3 className="text-sm sm:text-base font-extrabold text-slate-900 leading-snug line-clamp-2">
+          <h3 
+            onClick={() => setShowDetailModal(true)}
+            className="text-sm sm:text-base font-extrabold text-slate-900 leading-snug line-clamp-2 cursor-pointer hover:text-red-600 transition-colors"
+            title="Bấm để xem chi tiết task"
+          >
             {task.title}
           </h3>
 
-          {/* Task Description */}
+          {/* Task Description with scrollbar and view detail trigger */}
           {task.description && (
-            <p className="mt-2 text-xs sm:text-sm text-slate-600 leading-relaxed bg-slate-50/80 p-3 rounded-2xl border border-slate-100 line-clamp-3">
-              {task.description}
-            </p>
+            <div className="mt-2.5">
+              <div className="text-xs sm:text-sm text-slate-700 leading-relaxed bg-slate-50/90 p-3 rounded-2xl border border-slate-200/80 whitespace-pre-line max-h-36 overflow-y-auto select-text">
+                {task.description}
+              </div>
+              <div className="flex items-center justify-between mt-1 px-1">
+                <span className="text-[10px] text-slate-400 italic">Cuộn ô trên để xem thêm</span>
+                <button
+                  type="button"
+                  onClick={() => setShowDetailModal(true)}
+                  className="text-[11px] font-extrabold text-red-600 hover:text-red-700 flex items-center space-x-1 hover:underline"
+                >
+                  <Eye className="w-3.5 h-3.5" />
+                  <span>Xem đầy đủ ↗</span>
+                </button>
+              </div>
+            </div>
           )}
         </div>
 
         {/* Content Body: Direct Link & Deadlines */}
         <div className="p-4 sm:p-5 space-y-3 bg-slate-50/40">
+          {/* Xem Chi Tiết Button */}
+          <button
+            type="button"
+            onClick={() => setShowDetailModal(true)}
+            className="w-full flex items-center justify-center py-2 px-3 rounded-2xl bg-white border border-slate-200 text-slate-700 hover:text-red-600 hover:border-red-200 hover:bg-red-50/50 font-bold text-xs transition-all shadow-2xs group"
+          >
+            <Eye className="w-3.5 h-3.5 mr-1.5 text-slate-400 group-hover:text-red-600" />
+            Xem Chi Tiết Nhiệm Vụ
+          </button>
+
           {/* Action Button to Open Social Media */}
           <a
             href={task.post_url}
@@ -188,6 +218,14 @@ export default function TaskCard({ task, onOpenSubmitModal, onDeleteTask, isAdmi
           </div>
         )}
       </div>
+
+      {/* Task Detail Modal */}
+      <TaskDetailModal
+        task={task}
+        isOpen={showDetailModal}
+        onClose={() => setShowDetailModal(false)}
+        onOpenSubmitModal={onOpenSubmitModal}
+      />
     </div>
   );
 }
