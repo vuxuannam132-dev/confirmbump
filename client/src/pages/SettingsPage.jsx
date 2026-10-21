@@ -109,30 +109,30 @@ export default function SettingsPage() {
   };
 
   return (
-    <div className="space-y-6 max-w-4xl mx-auto">
+    <div className="space-y-5 max-w-4xl mx-auto w-full overflow-hidden">
       {/* Header */}
-      <div className="bg-white dark:bg-slate-900 rounded-3xl p-5 sm:p-7 border border-slate-200/80 dark:border-slate-800 shadow-xs flex items-center justify-between">
+      <div className="bg-white dark:bg-slate-900 rounded-3xl p-4 sm:p-7 border border-slate-200/80 dark:border-slate-800 shadow-xs flex items-center justify-between">
         <div className="flex items-center space-x-3.5">
-          <div className="w-12 h-12 rounded-2xl bg-red-50 dark:bg-red-950/50 text-red-600 dark:text-red-400 flex items-center justify-center shadow-xs">
-            <Settings className="w-6 h-6 animate-[spin_6s_linear_infinite]" />
+          <div className="w-11 h-11 sm:w-12 sm:h-12 rounded-2xl bg-red-50 dark:bg-red-950/50 text-red-600 dark:text-red-400 flex items-center justify-center shadow-xs flex-shrink-0">
+            <Settings className="w-5 h-5 sm:w-6 sm:h-6 animate-[spin_6s_linear_infinite]" />
           </div>
-          <div>
-            <h1 className="text-lg sm:text-xl font-black text-slate-900 dark:text-white">
+          <div className="min-w-0">
+            <h1 className="text-base sm:text-xl font-black text-slate-900 dark:text-white truncate">
               Cài Đặt Hệ Thống & Tài Khoản
             </h1>
-            <p className="text-xs text-slate-500 dark:text-slate-400 font-medium">
-              Tùy chỉnh giao diện hiển thị, đổi mật khẩu và quản lý thông tin
+            <p className="text-[11px] sm:text-xs text-slate-500 dark:text-slate-400 font-medium truncate">
+              Tùy chỉnh giao diện, đổi mật khẩu và quản lý thông tin
             </p>
           </div>
         </div>
 
-        <span className="hidden sm:inline-flex px-3 py-1 rounded-full text-xs font-black bg-blue-100 dark:bg-blue-900/60 text-blue-700 dark:text-blue-300">
+        <span className="hidden sm:inline-flex px-3 py-1 rounded-full text-xs font-black bg-blue-100 dark:bg-blue-900/60 text-blue-700 dark:text-blue-300 flex-shrink-0">
           {roleText}
         </span>
       </div>
 
       {/* 1. Giao diện (Theme Selection) */}
-      <div className="bg-white dark:bg-slate-900 rounded-3xl p-5 sm:p-6 border border-slate-200/80 dark:border-slate-800 shadow-xs space-y-4">
+      <div className="bg-white dark:bg-slate-900 rounded-3xl p-4 sm:p-6 border border-slate-200/80 dark:border-slate-800 shadow-xs space-y-3.5">
         <div className="flex items-center space-x-2">
           <Sparkles className="w-5 h-5 text-yellow-500" />
           <h2 className="text-sm sm:text-base font-black text-slate-900 dark:text-white">
@@ -140,10 +140,10 @@ export default function SettingsPage() {
           </h2>
         </div>
         <p className="text-xs text-slate-500 dark:text-slate-400">
-          Lựa chọn chế độ màu sắc phù hợp với sở thích và môi trường làm việc của bạn:
+          Lựa chọn chế độ màu sắc phù hợp với sở thích của bạn:
         </p>
 
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5 pt-1">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-1">
           {/* Light Theme */}
           <div
             onClick={() => setTheme('light')}
@@ -224,7 +224,7 @@ export default function SettingsPage() {
       </div>
 
       {/* 2. Đổi mật khẩu (Change Password) */}
-      <div className="bg-white dark:bg-slate-900 rounded-3xl p-5 sm:p-6 border border-slate-200/80 dark:border-slate-800 shadow-xs space-y-4">
+      <div className="bg-white dark:bg-slate-900 rounded-3xl p-4 sm:p-6 border border-slate-200/80 dark:border-slate-800 shadow-xs space-y-3.5">
         <div className="flex items-center space-x-2">
           <KeyRound className="w-5 h-5 text-red-600 dark:text-red-400" />
           <h2 className="text-sm sm:text-base font-black text-slate-900 dark:text-white">
@@ -335,7 +335,7 @@ export default function SettingsPage() {
       </div>
 
       {/* 3. Thông tin tài khoản */}
-      <div className="bg-white dark:bg-slate-900 rounded-3xl p-5 sm:p-6 border border-slate-200/80 dark:border-slate-800 shadow-xs space-y-4">
+      <div className="bg-white dark:bg-slate-900 rounded-3xl p-4 sm:p-6 border border-slate-200/80 dark:border-slate-800 shadow-xs space-y-3.5">
         <div className="flex items-center space-x-2">
           <User className="w-5 h-5 text-blue-600 dark:text-blue-400" />
           <h2 className="text-sm sm:text-base font-black text-slate-900 dark:text-white">
@@ -370,18 +370,18 @@ export default function SettingsPage() {
           </div>
 
           {user?.facebook_url && (
-            <div className="sm:col-span-2 p-3.5 bg-slate-50 dark:bg-slate-800/50 rounded-2xl border border-slate-200/80 dark:border-slate-700/80 flex items-center justify-between">
-              <div>
+            <div className="sm:col-span-2 p-3.5 bg-slate-50 dark:bg-slate-800/50 rounded-2xl border border-slate-200/80 dark:border-slate-700/80 flex items-center justify-between gap-3 overflow-hidden min-w-0">
+              <div className="min-w-0 flex-1 overflow-hidden">
                 <span className="text-[10px] font-bold uppercase text-slate-400 block">Facebook liên kết:</span>
-                <span className="text-xs font-semibold text-slate-700 dark:text-slate-300 mt-0.5 block truncate max-w-md">
+                <p className="text-xs font-semibold text-slate-700 dark:text-slate-300 mt-0.5 truncate select-all" title={user?.facebook_url}>
                   {user?.facebook_url}
-                </span>
+                </p>
               </div>
               <a
                 href={user?.facebook_url}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="px-3 py-1.5 rounded-xl bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400 font-bold text-xs inline-flex items-center hover:underline"
+                className="flex-shrink-0 px-3.5 py-1.5 rounded-xl bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400 font-bold text-xs inline-flex items-center hover:underline border border-blue-200/60 dark:border-blue-800/60 shadow-2xs active:scale-95 transition-all"
               >
                 <ExternalLink className="w-3.5 h-3.5 mr-1" /> Mở
               </a>
@@ -391,7 +391,7 @@ export default function SettingsPage() {
       </div>
 
       {/* 4. Vùng nguy hiểm (Danger Zone - Xóa tài khoản) */}
-      <div className="bg-red-50/50 dark:bg-red-950/20 rounded-3xl p-5 sm:p-6 border border-red-200 dark:border-red-900/50 shadow-xs space-y-3">
+      <div className="bg-red-50/50 dark:bg-red-950/20 rounded-3xl p-4 sm:p-6 border border-red-200 dark:border-red-900/50 shadow-xs space-y-3">
         <div className="flex items-center space-x-2">
           <Trash2 className="w-5 h-5 text-red-600 dark:text-red-400" />
           <h2 className="text-sm sm:text-base font-black text-red-900 dark:text-red-300">

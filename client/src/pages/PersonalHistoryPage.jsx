@@ -74,9 +74,9 @@ export default function PersonalHistoryPage() {
       </div>
 
       {/* Account Info & Mini Stats */}
-      <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">
         {/* User Card */}
-        <div className="sm:col-span-2 bg-gradient-to-br from-slate-900 via-slate-800 to-slate-950 text-white rounded-3xl p-5 sm:p-6 shadow-md border border-slate-700/80 flex flex-col justify-between">
+        <div className="col-span-2 sm:col-span-2 bg-gradient-to-br from-slate-900 via-slate-800 to-slate-950 text-white rounded-3xl p-4 sm:p-6 shadow-md border border-slate-700/80 flex flex-col justify-between">
           <div>
             <div className="flex items-center justify-between">
               <span className="text-[10px] font-black uppercase tracking-wider text-yellow-400">
@@ -86,45 +86,45 @@ export default function PersonalHistoryPage() {
                 {roleText}
               </span>
             </div>
-            <h2 className="text-base sm:text-lg font-black mt-1">{user.full_name}</h2>
-            <p className="text-xs text-slate-300 mt-0.5">
+            <h2 className="text-base sm:text-lg font-black mt-1 truncate">{user.full_name}</h2>
+            <p className="text-xs text-slate-300 mt-0.5 truncate">
               @{user.username} • {user.email}
             </p>
           </div>
 
-          <div className="pt-4 border-t border-white/10 mt-4 flex items-center justify-between text-xs text-slate-300">
-            <span>Phân ban trực thuộc:</span>
-            <span className="text-yellow-300 font-extrabold">{user.department_name || 'Đoàn Trường'}</span>
+          <div className="pt-3 border-t border-white/10 mt-3 sm:mt-4 flex items-center justify-between text-xs text-slate-300">
+            <span className="text-[11px] text-slate-400">Phân ban:</span>
+            <span className="text-yellow-300 font-extrabold truncate ml-2">{user.department_name || 'Đoàn Trường'}</span>
           </div>
         </div>
 
         {/* Stats 1: Approved */}
-        <div className="bg-white dark:bg-slate-900 rounded-3xl p-5 border border-slate-200/80 dark:border-slate-800 shadow-xs flex flex-col justify-between">
+        <div className="col-span-1 bg-white dark:bg-slate-900 rounded-3xl p-3.5 sm:p-5 border border-slate-200/80 dark:border-slate-800 shadow-xs flex flex-col justify-between">
           <div className="flex items-center justify-between text-emerald-600 dark:text-emerald-400">
-            <span className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Đã Phê Duyệt</span>
-            <CheckCircle2 className="w-5 h-5" />
+            <span className="text-[10px] sm:text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Đã Duyệt</span>
+            <CheckCircle2 className="w-4 h-4 sm:w-5 sm:h-5" />
           </div>
-          <div className="mt-3">
-            <span className="text-3xl font-black text-slate-900 dark:text-white">{approvedCount}</span>
-            <p className="text-[11px] text-emerald-600 dark:text-emerald-400 font-semibold mt-0.5">Lượt xác nhận hợp lệ</p>
+          <div className="mt-2 sm:mt-3">
+            <span className="text-2xl sm:text-3xl font-black text-slate-900 dark:text-white">{approvedCount}</span>
+            <p className="text-[10px] sm:text-[11px] text-emerald-600 dark:text-emerald-400 font-semibold mt-0.5">Hợp lệ</p>
           </div>
         </div>
 
         {/* Stats 2: In Queue & Rejected */}
-        <div className="bg-white dark:bg-slate-900 rounded-3xl p-5 border border-slate-200/80 dark:border-slate-800 shadow-xs flex flex-col justify-between">
+        <div className="col-span-1 bg-white dark:bg-slate-900 rounded-3xl p-3.5 sm:p-5 border border-slate-200/80 dark:border-slate-800 shadow-xs flex flex-col justify-between">
           <div className="flex items-center justify-between text-amber-600 dark:text-amber-400">
-            <span className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Chờ Duyệt / Lại</span>
-            <Clock className="w-5 h-5" />
+            <span className="text-[10px] sm:text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Chờ / Lại</span>
+            <Clock className="w-4 h-4 sm:w-5 sm:h-5" />
           </div>
-          <div className="mt-3 flex items-baseline space-x-3">
+          <div className="mt-2 sm:mt-3 flex items-baseline space-x-2">
             <div>
-              <span className="text-3xl font-black text-amber-600 dark:text-amber-400">{pendingCount}</span>
-              <span className="text-[11px] text-slate-400 font-bold ml-1">chờ</span>
+              <span className="text-2xl sm:text-3xl font-black text-amber-600 dark:text-amber-400">{pendingCount}</span>
+              <span className="text-[10px] sm:text-[11px] text-slate-400 font-bold ml-0.5">chờ</span>
             </div>
             {rejectedCount > 0 && (
               <div>
-                <span className="text-xl font-black text-red-600 dark:text-red-400">{rejectedCount}</span>
-                <span className="text-[11px] text-red-500 font-bold ml-1">từ chối</span>
+                <span className="text-base sm:text-xl font-black text-red-600 dark:text-red-400">{rejectedCount}</span>
+                <span className="text-[9px] sm:text-[11px] text-red-500 font-bold ml-0.5">lại</span>
               </div>
             )}
           </div>
@@ -190,19 +190,20 @@ export default function PersonalHistoryPage() {
                     </div>
                   )}
 
-                  <div className="flex items-center justify-between pt-1">
+                  <div className="flex items-center justify-between pt-1 gap-2 overflow-hidden">
                     <a
                       href={item.task_post_url}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="text-xs text-blue-600 dark:text-blue-400 hover:underline inline-flex items-center font-semibold"
+                      className="text-xs text-blue-600 dark:text-blue-400 hover:underline inline-flex items-center font-semibold truncate flex-1 min-w-0"
                     >
-                      <ExternalLink className="w-3 h-3 mr-1" /> Mở bài đăng {item.task_platform}
+                      <ExternalLink className="w-3.5 h-3.5 mr-1 flex-shrink-0" />
+                      <span className="truncate">Mở bài đăng {item.task_platform}</span>
                     </a>
 
                     <button
                       onClick={() => setSelectedProof(item)}
-                      className="px-3 py-1.5 rounded-xl bg-white dark:bg-slate-700 border border-slate-200 dark:border-slate-600 text-slate-700 dark:text-slate-200 font-bold text-xs inline-flex items-center shadow-2xs hover:bg-slate-50 dark:hover:bg-slate-600"
+                      className="flex-shrink-0 px-3 py-1.5 rounded-xl bg-white dark:bg-slate-700 border border-slate-200 dark:border-slate-600 text-slate-700 dark:text-slate-200 font-bold text-xs inline-flex items-center shadow-2xs hover:bg-slate-50 dark:hover:bg-slate-600"
                     >
                       <Eye className="w-3.5 h-3.5 mr-1" /> Xem ảnh
                     </button>

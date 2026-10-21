@@ -210,43 +210,56 @@ export default function Sidebar({ activeTab, setActiveTab, onOpenInstallAppModal
       </aside>
 
       {/* ========================================================================= */}
-      {/* 2. MOBILE TOP HEADER (visible on small screens) */}
+      {/* 2. MOBILE TOP HEADER (Optimized for iPhone Notch / Dynamic Island) */}
       {/* ========================================================================= */}
-      <header className="lg:hidden sticky top-0 z-40 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md border-b border-slate-200 dark:border-slate-800 px-4 py-3 flex items-center justify-between transition-colors">
-        <div className="flex items-center space-x-2.5" onClick={() => handleNavClick('tasks')}>
-          <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-red-600 to-red-500 flex items-center justify-center text-white shadow-xs">
-            <Flame className="w-4 h-4 text-yellow-300 fill-yellow-300" />
-          </div>
-          <div className="flex items-center space-x-1.5">
-            <span className="font-black text-sm tracking-tight text-slate-900 dark:text-white">
-              ĐOÀN TRƯỜNG
-            </span>
-            <span className="text-[9px] font-black uppercase px-1 py-0.2 rounded bg-yellow-400 text-yellow-950">
-              BUMP
-            </span>
-          </div>
-        </div>
-
-        <div className="flex items-center space-x-2">
-          {/* Quick Role Pill */}
-          <span className={`text-[10px] font-black uppercase px-2 py-0.5 rounded-full ${roleBadgeStyle}`}>
-            {roleText}
-          </span>
-
-          {/* Hamburger Button */}
-          <button
-            type="button"
-            onClick={() => setMobileDrawerOpen(true)}
-            className="p-2 rounded-xl text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors border border-slate-200 dark:border-slate-700"
-            aria-label="Mở menu"
+      <header 
+        className="lg:hidden sticky top-0 z-40 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md border-b border-slate-200/90 dark:border-slate-800 transition-colors w-full"
+        style={{
+          paddingTop: 'max(env(safe-area-inset-top, 0px), 14px)',
+          paddingBottom: '10px',
+          paddingLeft: 'max(env(safe-area-inset-left, 0px), 16px)',
+          paddingRight: 'max(env(safe-area-inset-right, 0px), 16px)'
+        }}
+      >
+        <div className="flex items-center justify-between h-10 w-full">
+          <div 
+            className="flex items-center space-x-2.5 cursor-pointer active:opacity-80 select-none" 
+            onClick={() => handleNavClick('tasks')}
           >
-            <Menu className="w-5 h-5" />
-          </button>
+            <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-red-600 to-red-500 flex items-center justify-center text-white shadow-xs flex-shrink-0">
+              <Flame className="w-4 h-4 text-yellow-300 fill-yellow-300" />
+            </div>
+            <div className="flex items-center space-x-1.5">
+              <span className="font-black text-sm tracking-tight text-slate-900 dark:text-white">
+                ĐOÀN TRƯỜNG
+              </span>
+              <span className="text-[9px] font-black uppercase px-1.5 py-0.5 rounded bg-yellow-400 text-yellow-950 shadow-2xs">
+                BUMP
+              </span>
+            </div>
+          </div>
+
+          <div className="flex items-center space-x-2">
+            {/* Quick Role Pill */}
+            <span className={`text-[10px] font-black uppercase px-2.5 py-0.5 rounded-full ${roleBadgeStyle}`}>
+              {roleText}
+            </span>
+
+            {/* Hamburger Button */}
+            <button
+              type="button"
+              onClick={() => setMobileDrawerOpen(true)}
+              className="p-2 rounded-xl text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors border border-slate-200 dark:border-slate-700 active:scale-95"
+              aria-label="Mở menu"
+            >
+              <Menu className="w-5 h-5" />
+            </button>
+          </div>
         </div>
       </header>
 
       {/* ========================================================================= */}
-      {/* 3. MOBILE SLIDE-OVER DRAWER */}
+      {/* 3. MOBILE SLIDE-OVER DRAWER (Safe-area padded) */}
       {/* ========================================================================= */}
       {mobileDrawerOpen && (
         <div className="lg:hidden fixed inset-0 z-50 flex">
@@ -257,7 +270,14 @@ export default function Sidebar({ activeTab, setActiveTab, onOpenInstallAppModal
           />
 
           {/* Drawer Content */}
-          <div className="relative ml-auto w-4/5 max-w-xs bg-white dark:bg-slate-900 h-full shadow-2xl flex flex-col justify-between p-5 z-10 animate-in slide-in-from-right duration-200">
+          <div 
+            className="relative ml-auto w-4/5 max-w-xs bg-white dark:bg-slate-900 h-full shadow-2xl flex flex-col justify-between p-5 z-10 animate-in slide-in-from-right duration-200 overflow-y-auto"
+            style={{
+              paddingTop: 'max(env(safe-area-inset-top, 0px), 20px)',
+              paddingBottom: 'max(env(safe-area-inset-bottom, 0px), 24px)',
+              paddingRight: 'max(env(safe-area-inset-right, 0px), 20px)'
+            }}
+          >
             <div>
               {/* Drawer Header */}
               <div className="flex items-center justify-between pb-4 border-b border-slate-100 dark:border-slate-800">
