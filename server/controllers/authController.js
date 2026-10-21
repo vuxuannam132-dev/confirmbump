@@ -20,7 +20,7 @@ async function sendOtp(req, res) {
       return res.status(400).json({ success: false, message: 'Email này đã được sử dụng bởi một tài khoản khác.' });
     }
 
-    const { otpCode } = await generateAndSendOtp(cleanEmail);
+    const { otpCode } = await generateAndSendOtp(cleanEmail, 'REGISTER');
 
     return res.json({
       success: true,
@@ -166,7 +166,7 @@ async function forgotPasswordSendOtp(req, res) {
       return res.status(404).json({ success: false, message: 'Không tìm thấy tài khoản nào gắn với email này.' });
     }
 
-    const { otpCode } = await generateAndSendOtp(cleanEmail);
+    const { otpCode } = await generateAndSendOtp(cleanEmail, 'RESET_PASSWORD', user.full_name);
 
     return res.json({
       success: true,
