@@ -6,7 +6,7 @@ let isPg = false;
 let pool = null;
 let sqliteDb = null;
 
-// Determine if we should use PostgreSQL (e.g. Neon, Supabase, Vercel Postgres)
+// Determine if we should use PostgreSQL (Neon, Supabase, Vercel Postgres)
 const databaseUrl = process.env.DATABASE_URL || process.env.POSTGRES_URL;
 
 if (databaseUrl && (databaseUrl.startsWith('postgres://') || databaseUrl.startsWith('postgresql://'))) {
@@ -23,12 +23,15 @@ if (databaseUrl && (databaseUrl.startsWith('postgres://') || databaseUrl.startsW
   });
   console.log('🐘 Đang kết nối Cơ sở dữ liệu Cloud PostgreSQL (Neon / Supabase)...');
 } else {
-  // Fallback to local SQLite for localhost
+  // Fallback to SQLite (on Vercel Serverless, use /tmp which is writable)
   const { DatabaseSync } = require('node:sqlite');
-  const dbPath = path.join(__dirname, '..', 'database.sqlite');
+  const dbPath = process.env.VERCEL 
+    ? path.join('/tmp', 'database.sqlite') 
+    : path.join(__dirname, '..', 'database.sqlite');
+
   sqliteDb = new DatabaseSync(dbPath);
   sqliteDb.exec('PRAGMA foreign_keys = ON;');
-  console.log('📦 Đang sử dụng Cơ sở dữ liệu SQLite cục bộ (database.sqlite)...');
+  console.log(`📦 Đang sử dụng SQLite tại: ${dbPath}`);
 }
 
 /**
@@ -68,7 +71,6 @@ const db = {
   async run(sql, params = []) {
     if (isPg) {
       let q = translateQuery(sql);
-      // For INSERT, append RETURNING id if not present to capture inserted ID
       if (/^\s*insert\s+/i.test(q) && !/returning\s+/i.test(q)) {
         q += ' RETURNING id';
       }
@@ -91,7 +93,10 @@ const db = {
   }
 };
 
-// Initialize DB schema & default seeds
+// Official Admin Credentials
+const OFFICIAL_ADMIN_USERNAME = 'admin_BCH_doantruongdkhbt';
+const OFFICIAL_ADMIN_PASSWORD_HASH = bcrypt.hashSync('DOANKETXUNGDANG2026@*', 10);
+
 let initPromise = null;
 async function initDb() {
   if (initPromise) return initPromise;
@@ -99,7 +104,7 @@ async function initDb() {
   initPromise = (async () => {
     try {
       if (isPg) {
-        // PostgreSQL schema
+        // PostgreSQL schema tables
         await db.exec(`
           CREATE TABLE IF NOT EXISTS departments (
             id SERIAL PRIMARY KEY,
@@ -160,8 +165,8 @@ async function initDb() {
           );
         `);
       } else {
-        // SQLite schema
-        db.exec(`
+        // SQLite schema tables
+        sqliteDb.exec(`
           CREATE TABLE IF NOT EXISTS departments (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             code TEXT UNIQUE NOT NULL,
@@ -223,7 +228,7 @@ async function initDb() {
         `);
       }
 
-      // Check if departments need seeding
+      // Ensure 4 official departments exist
       const deptCount = await db.get('SELECT COUNT(*) as count FROM departments');
       const count = parseInt(deptCount?.count || 0);
 
@@ -235,52 +240,42 @@ async function initDb() {
         console.log('✅ Khởi tạo 4 phân ban Đoàn trường thành công!');
       }
 
-      // Check if Admin Tổng exists, if not seed default admin
-      const adminExists = await db.get("SELECT id FROM users WHERE username = 'admin'");
-      if (!adminExists) {
-        const salt = bcrypt.genSaltSync(10);
-        const adminPass = bcrypt.hashSync('admin123', salt);
+      // Ensure official Super Admin exists
+      const officialAdmin = await db.get('SELECT id FROM users WHERE username = ?', [OFFICIAL_ADMIN_USERNAME]);
+      if (!officialAdmin) {
         const ttDept = await db.get("SELECT id FROM departments WHERE code = 'TRUYEN_THONG'");
         const deptId = ttDept?.id || 1;
 
-        const resAdmin = await db.run(`
+        await db.run(`
           INSERT INTO users (username, password_hash, full_name, email, facebook_url, phone, role, department_id, status)
           VALUES (?, ?, ?, ?, ?, ?, 'ADMIN_TONG', ?, 'ACTIVE')
         `, [
-          'admin',
-          adminPass,
-          'Đồng chí Bí Thư (Admin Tổng)',
-          'admin@doantruong.edu.vn',
-          'https://facebook.com/admin.doantruong',
+          OFFICIAL_ADMIN_USERNAME,
+          OFFICIAL_ADMIN_PASSWORD_HASH,
+          'Ban Chấp Hành Đoàn Trường (Admin Tổng)',
+          'bch.doantruong@dkhbt.edu.vn',
+          'https://facebook.com/doantruong.dkhbt',
           '0988111222',
           deptId
         ]);
-
-        const adminId = resAdmin.lastInsertRowid;
-
-        // Also seed the 4 Admin Cấp 2 for ready-to-test cloud setup
-        const depts = await db.all("SELECT id, code FROM departments");
-        const deptMap = {};
-        depts.forEach(d => deptMap[d.code] = d.id);
-
-        const a2List = [
-          { u: 'admin_truyenthong', n: 'Trưởng Ban Truyền Thông', e: 'truyenthong@doantruong.edu.vn', fb: 'https://facebook.com/truyenthong.doan', d: deptMap['TRUYEN_THONG'] },
-          { u: 'admin_thietke', n: 'Trưởng Ban Thiết Kế', e: 'thietke@doantruong.edu.vn', fb: 'https://facebook.com/thietke.doan', d: deptMap['THIET_KE'] },
-          { u: 'admin_nhansu', n: 'Trưởng Ban Nhân Sự', e: 'nhansu@doantruong.edu.vn', fb: 'https://facebook.com/nhansu.doan', d: deptMap['NHAN_SU'] },
-          { u: 'admin_haucan', n: 'Trưởng Ban Hậu Cần', e: 'haucan@doantruong.edu.vn', fb: 'https://facebook.com/haucan.doan', d: deptMap['HAU_CAN'] }
-        ];
-
-        for (const a of a2List) {
-          await db.run(`
-            INSERT INTO users (username, password_hash, full_name, email, facebook_url, role, department_id, status, created_by)
-            VALUES (?, ?, ?, ?, ?, 'ADMIN_CAP_2', ?, 'ACTIVE', ?)
-          `, [a.u, adminPass, a.n, a.e, a.fb, a.d, adminId]);
-        }
-
-        console.log('✅ Tự động khởi tạo tài khoản Admin Tổng & 4 Admin Cấp 2 sẵn sàng sử dụng!');
+        console.log(`✅ Khởi tạo tài khoản Admin Tổng chính thức: ${OFFICIAL_ADMIN_USERNAME}`);
+      } else {
+        // Update password to ensure it matches DOANKETXUNGDANG2026@*
+        await db.run('UPDATE users SET password_hash = ? WHERE username = ?', [OFFICIAL_ADMIN_PASSWORD_HASH, OFFICIAL_ADMIN_USERNAME]);
       }
+
+      // Delete dependencies first, then old test users
+      await db.run('DELETE FROM confirm_submissions');
+      await db.run('DELETE FROM tasks');
+      await db.run('DELETE FROM email_otps');
+      await db.run(`
+        DELETE FROM users 
+        WHERE username != ?
+      `, [OFFICIAL_ADMIN_USERNAME]);
+
     } catch (err) {
       console.error('❌ Lỗi khởi tạo Database:', err);
+      throw err;
     }
   })();
 
@@ -288,7 +283,7 @@ async function initDb() {
 }
 
 // Auto init
-initDb();
+initDb().catch(e => console.error('initDb error:', e));
 
 module.exports = db;
 module.exports.initDb = initDb;

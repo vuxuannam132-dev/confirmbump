@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { Flame, LogIn, UserPlus, AlertCircle, Sparkles, Shield, User } from 'lucide-react';
+import { Flame, LogIn, UserPlus, AlertCircle } from 'lucide-react';
 
 export default function LoginPage({ onNavigateRegister }) {
   const { login } = useAuth();
@@ -27,30 +27,15 @@ export default function LoginPage({ onNavigateRegister }) {
       if (err.response?.data?.status === 'PENDING_APPROVAL') {
         setPendingNotice(err.response.data.message);
       } else {
-        setError(err.message || 'Đăng nhập không thành công.');
+        setError(err.response?.data?.message || err.message || 'Đăng nhập không thành công.');
       }
     } finally {
       setLoading(false);
     }
   };
 
-  const handleQuickLogin = async (quickUsername, quickPassword) => {
-    setUsername(quickUsername);
-    setPassword(quickPassword);
-    setLoading(true);
-    setError('');
-    setPendingNotice(null);
-    try {
-      await login(quickUsername, quickPassword);
-    } catch (err) {
-      setError(err.message || 'Đăng nhập nhanh thất bại.');
-    } finally {
-      setLoading(false);
-    }
-  };
-
   return (
-    <div className="min-h-screen bg-slate-50 flex flex-col justify-center py-12 sm:px-6 lg:px-8">
+    <div className="min-h-screen bg-slate-50 flex flex-col justify-center py-12 px-4 sm:px-6 lg:px-8">
       <div className="sm:mx-auto sm:w-full sm:max-w-md">
         {/* Brand Header */}
         <div className="text-center">
@@ -66,7 +51,7 @@ export default function LoginPage({ onNavigateRegister }) {
         </div>
       </div>
 
-      <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md px-4">
+      <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md">
         <div className="bg-white py-8 px-6 sm:px-10 shadow-xl shadow-slate-200/60 rounded-3xl border border-slate-100">
           <form onSubmit={handleSubmit} className="space-y-4">
             {error && (
@@ -95,7 +80,7 @@ export default function LoginPage({ onNavigateRegister }) {
                 required
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
-                placeholder="Nhập username của bạn"
+                placeholder="Nhập tên đăng nhập"
                 className="w-full px-4 py-3 rounded-xl border border-slate-200 text-sm focus:ring-2 focus:ring-red-500 focus:outline-none transition-all placeholder-slate-400"
               />
             </div>
@@ -124,56 +109,8 @@ export default function LoginPage({ onNavigateRegister }) {
             </button>
           </form>
 
-          {/* Localhost Test Fast Login Panel */}
-          <div className="mt-6 pt-6 border-t border-slate-100">
-            <div className="flex items-center justify-center space-x-1 mb-3 text-slate-400">
-              <Sparkles className="w-3.5 h-3.5 text-yellow-500" />
-              <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500">
-                Nút Test Nhanh (Localhost)
-              </span>
-            </div>
-
-            <div className="grid grid-cols-2 gap-2 text-xs">
-              <button
-                type="button"
-                onClick={() => handleQuickLogin('admin', 'admin123')}
-                className="p-2 rounded-xl bg-red-50 hover:bg-red-100 border border-red-200 text-red-800 font-bold flex items-center justify-center transition-colors"
-              >
-                <Shield className="w-3.5 h-3.5 mr-1 text-red-600" />
-                Admin Tổng
-              </button>
-
-              <button
-                type="button"
-                onClick={() => handleQuickLogin('admin_truyenthong', 'admin123')}
-                className="p-2 rounded-xl bg-blue-50 hover:bg-blue-100 border border-blue-200 text-blue-800 font-bold flex items-center justify-center transition-colors"
-              >
-                <Shield className="w-3.5 h-3.5 mr-1 text-blue-600" />
-                Admin Truyền Thông
-              </button>
-
-              <button
-                type="button"
-                onClick={() => handleQuickLogin('admin_thietke', 'admin123')}
-                className="p-2 rounded-xl bg-amber-50 hover:bg-amber-100 border border-amber-200 text-amber-900 font-bold flex items-center justify-center transition-colors"
-              >
-                <Shield className="w-3.5 h-3.5 mr-1 text-amber-600" />
-                Admin Thiết Kế
-              </button>
-
-              <button
-                type="button"
-                onClick={() => handleQuickLogin('user_tt', 'user123')}
-                className="p-2 rounded-xl bg-slate-100 hover:bg-slate-200 border border-slate-300 text-slate-800 font-bold flex items-center justify-center transition-colors"
-              >
-                <User className="w-3.5 h-3.5 mr-1 text-slate-600" />
-                Member Truyền Thông
-              </button>
-            </div>
-          </div>
-
           {/* Switch to Register */}
-          <div className="mt-6 text-center">
+          <div className="mt-6 text-center pt-4 border-t border-slate-100">
             <p className="text-xs text-slate-500">
               Chưa có tài khoản đoàn viên?{' '}
               <button
