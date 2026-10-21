@@ -6,7 +6,9 @@ import {
   RotateCw, 
   Download, 
   ExternalLink,
-  Maximize2
+  Maximize2,
+  ChevronLeft,
+  ChevronRight
 } from 'lucide-react';
 
 /**
@@ -60,35 +62,72 @@ export function downloadImage(imageUrl, filename = 'minh-chung-bump.jpg') {
   }
 }
 
-export default function ImageLightboxModal({ isOpen, imageUrl, title = 'Minh chứng hình ảnh', onClose }) {
+export default function ImageLightboxModal({ 
+  isOpen, 
+  imageUrl, 
+  images = [], 
+  initialIndex = 0, 
+  title = 'Minh chứng hình ảnh', 
+  onClose 
+}) {
   const [scale, setScale] = useState(1);
   const [rotation, setRotation] = useState(0);
+  const [currentIndex, setCurrentIndex] = useState(initialIndex);
+
+  // Normalize image list
+  const imageList = Array.isArray(images) && images.length > 0 
+    ? images 
+    : (imageUrl ? [imageUrl] : []);
 
   useEffect(() => {
     if (isOpen) {
+      setCurrentIndex(Math.max(0, Math.min(initialIndex, Math.max(0, imageList.length - 1))));
       setScale(1);
       setRotation(0);
       document.body.style.overflow = 'hidden';
     } else {
       document.body.style.overflow = 'auto';
     }
+  }, [isOpen, initialIndex, imageList.length]);
 
+  useEffect(() => {
     const handleKeyDown = (e) => {
       if (!isOpen) return;
       if (e.key === 'Escape') onClose();
       if (e.key === '+' || e.key === '=') setScale(s => Math.min(s + 0.25, 4));
       if (e.key === '-') setScale(s => Math.max(s - 0.25, 0.5));
       if (e.key === 'r' || e.key === 'R') setRotation(r => (r + 90) % 360);
+      if (e.key === 'ArrowLeft') handlePrev();
+      if (e.key === 'ArrowRight') handleNext();
     };
 
     window.addEventListener('keydown', handleKeyDown);
     return () => {
       window.removeEventListener('keydown', handleKeyDown);
-      document.body.style.overflow = 'auto';
     };
-  }, [isOpen, onClose]);
+  }, [isOpen, currentIndex, imageList.length]);
 
-  if (!isOpen || !imageUrl) return null;
+  if (!isOpen || imageList.length === 0) return null;
+
+  const currentImage = imageList[currentIndex] || imageList[0];
+
+  const handlePrev = (e) => {
+    if (e) e.stopPropagation();
+    if (currentIndex > 0) {
+      setCurrentIndex(currentIndex - 1);
+      setScale(1);
+      setRotation(0);
+    }
+  };
+
+  const handleNext = (e) => {
+    if (e) e.stopPropagation();
+    if (currentIndex < imageList.length - 1) {
+      setCurrentIndex(currentIndex + 1);
+      setScale(1);
+      setRotation(0);
+    }
+  };
 
   const handleZoomIn = (e) => {
     e.stopPropagation();
@@ -113,12 +152,12 @@ export default function ImageLightboxModal({ isOpen, imageUrl, title = 'Minh ch�
 
   const handleDownload = (e) => {
     e.stopPropagation();
-    downloadImage(imageUrl, `minh-chung-${Date.now()}.jpg`);
+    downloadImage(currentImage, `minh-chung-${currentIndex + 1}-${Date.now()}.jpg`);
   };
 
   const handleOpenTab = (e) => {
     e.stopPropagation();
-    openImageInNewTab(imageUrl);
+    openImageInNewTab(currentImage);
   };
 
   return (
@@ -128,14 +167,19 @@ export default function ImageLightboxModal({ isOpen, imageUrl, title = 'Minh ch�
     >
       {/* Top Bar */}
       <div 
-        className="px-4 py-3 sm:px-6 flex items-center justify-between bg-black/50 border-b border-white/10 text-white z-10"
+        className="px-4 py-3 sm:px-6 flex items-center justify-between bg-black/60 border-b border-white/10 text-white z-20"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center space-x-2">
           <Maximize2 className="w-4 h-4 text-yellow-400" />
-          <span className="text-xs sm:text-sm font-bold truncate max-w-[200px] sm:max-w-md">
+          <span className="text-xs sm:text-sm font-bold truncate max-w-[160px] sm:max-w-md">
             {title}
           </span>
+          {imageList.length > 1 && (
+            <span className="text-[11px] font-bold bg-blue-600 text-white px-2 py-0.5 rounded-full">
+              Ảnh {currentIndex + 1}/{imageList.length}
+            </span>
+          )}
           <span className="hidden sm:inline-block text-[11px] text-white/50 bg-white/10 px-2 py-0.5 rounded-full">
             {Math.round(scale * 100)}%
           </span>
@@ -147,7 +191,7 @@ export default function ImageLightboxModal({ isOpen, imageUrl, title = 'Minh ch�
             type="button"
             onClick={handleOpenTab}
             className="inline-flex items-center space-x-1.5 px-3 py-1.5 rounded-xl bg-white/10 hover:bg-white/20 text-white text-xs font-semibold transition-colors"
-            title="Mở ảnh ở tab mới (Hỗ trợ chống lỗi trắng trang)"
+            title="Mở ảnh ở tab mới"
           >
             <ExternalLink className="w-3.5 h-3.5" />
             <span className="hidden sm:inline">Mở tab mới</span>
@@ -176,6 +220,19 @@ export default function ImageLightboxModal({ isOpen, imageUrl, title = 'Minh ch�
 
       {/* Main Image Stage */}
       <div className="relative flex-1 flex items-center justify-center p-2 sm:p-6 overflow-hidden">
+        {/* Previous Button */}
+        {imageList.length > 1 && currentIndex > 0 && (
+          <button
+            type="button"
+            onClick={handlePrev}
+            className="absolute left-3 sm:left-6 z-20 p-2.5 sm:p-3 rounded-full bg-black/60 hover:bg-white/20 text-white border border-white/20 backdrop-blur-md transition-all active:scale-95"
+            title="Ảnh trước (Phím ←)"
+          >
+            <ChevronLeft className="w-6 h-6" />
+          </button>
+        )}
+
+        {/* Image viewport */}
         <div 
           className="transition-transform duration-150 ease-out max-w-full max-h-full flex items-center justify-center"
           style={{
@@ -184,24 +241,64 @@ export default function ImageLightboxModal({ isOpen, imageUrl, title = 'Minh ch�
           onClick={(e) => e.stopPropagation()}
         >
           <img
-            src={imageUrl}
-            alt="Proof preview"
-            className="max-h-[82vh] max-w-[92vw] object-contain rounded-lg shadow-2xl border border-white/10 pointer-events-auto"
+            src={currentImage}
+            alt={`Minh chứng ${currentIndex + 1}`}
+            className="max-h-[74vh] max-w-[92vw] object-contain rounded-lg shadow-2xl border border-white/10 pointer-events-auto"
             draggable={false}
           />
         </div>
+
+        {/* Next Button */}
+        {imageList.length > 1 && currentIndex < imageList.length - 1 && (
+          <button
+            type="button"
+            onClick={handleNext}
+            className="absolute right-3 sm:right-6 z-20 p-2.5 sm:p-3 rounded-full bg-black/60 hover:bg-white/20 text-white border border-white/20 backdrop-blur-md transition-all active:scale-95"
+            title="Ảnh tiếp theo (Phím →)"
+          >
+            <ChevronRight className="w-6 h-6" />
+          </button>
+        )}
       </div>
 
-      {/* Floating Bottom Toolbar */}
+      {/* Bottom Area: Thumbnail Strip & Zoom Toolbar */}
       <div 
-        className="pb-4 pt-2 flex items-center justify-center z-10"
+        className="pb-4 pt-2 flex flex-col items-center justify-center z-20 space-y-2 bg-gradient-to-t from-black/80 to-transparent"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="flex items-center space-x-1 sm:space-x-2 bg-slate-900/90 border border-white/15 px-3 sm:px-4 py-2 rounded-2xl shadow-2xl backdrop-blur-md text-white text-xs">
+        {/* Thumbnails Strip if multiple images */}
+        {imageList.length > 1 && (
+          <div className="flex items-center space-x-2 max-w-[90vw] overflow-x-auto py-1 px-3 custom-scrollbar">
+            {imageList.map((img, idx) => (
+              <button
+                key={idx}
+                type="button"
+                onClick={() => {
+                  setCurrentIndex(idx);
+                  setScale(1);
+                  setRotation(0);
+                }}
+                className={`relative w-12 h-12 rounded-lg overflow-hidden border-2 transition-all flex-shrink-0 ${
+                  currentIndex === idx 
+                    ? 'border-blue-500 scale-105 shadow-md shadow-blue-500/50' 
+                    : 'border-white/30 opacity-60 hover:opacity-100'
+                }`}
+              >
+                <img src={img} alt={`Thumb ${idx + 1}`} className="w-full h-full object-cover" />
+                <span className="absolute bottom-0.5 right-0.5 bg-black/80 text-[9px] text-white font-bold px-1 rounded">
+                  #{idx + 1}
+                </span>
+              </button>
+            ))}
+          </div>
+        )}
+
+        {/* Floating Zoom Toolbar */}
+        <div className="flex items-center space-x-1 sm:space-x-2 bg-slate-900/90 border border-white/15 px-3 sm:px-4 py-1.5 rounded-2xl shadow-2xl backdrop-blur-md text-white text-xs">
           <button
             type="button"
             onClick={handleZoomOut}
-            className="p-2 rounded-xl hover:bg-white/15 transition-colors"
+            className="p-1.5 rounded-xl hover:bg-white/15 transition-colors"
             title="Thu nhỏ (-)"
           >
             <ZoomOut className="w-4 h-4" />
@@ -210,7 +307,7 @@ export default function ImageLightboxModal({ isOpen, imageUrl, title = 'Minh ch�
           <button
             type="button"
             onClick={handleResetZoom}
-            className="px-2.5 py-1 rounded-xl hover:bg-white/15 text-[11px] font-bold transition-colors"
+            className="px-2 py-0.5 rounded-xl hover:bg-white/15 text-[11px] font-bold transition-colors"
             title="Kích thước gốc (100%)"
           >
             {Math.round(scale * 100)}%
@@ -219,18 +316,18 @@ export default function ImageLightboxModal({ isOpen, imageUrl, title = 'Minh ch�
           <button
             type="button"
             onClick={handleZoomIn}
-            className="p-2 rounded-xl hover:bg-white/15 transition-colors"
+            className="p-1.5 rounded-xl hover:bg-white/15 transition-colors"
             title="Phóng to (+)"
           >
             <ZoomIn className="w-4 h-4" />
           </button>
 
-          <div className="w-[1px] h-4 bg-white/20 mx-1" />
+          <div className="w-[1px] h-3.5 bg-white/20 mx-1" />
 
           <button
             type="button"
             onClick={handleRotate}
-            className="p-2 rounded-xl hover:bg-white/15 transition-colors"
+            className="p-1.5 rounded-xl hover:bg-white/15 transition-colors"
             title="Xoay 90 độ (Phím R)"
           >
             <RotateCw className="w-4 h-4" />

@@ -4,8 +4,13 @@ const confirmController = require('../controllers/confirmController');
 const { verifyToken, requireAdmin, requireAdminTong } = require('../middleware/authMiddleware');
 const upload = require('../middleware/uploadMiddleware');
 
-// Member submits confirm proof
-router.post('/submit', verifyToken, upload.single('image'), confirmController.submitConfirm);
+// Member submits confirm proof - accept both multiple 'images' (up to 10) and legacy single 'image'
+const uploadConfirmProof = upload.fields([
+  { name: 'images', maxCount: 10 },
+  { name: 'image', maxCount: 1 }
+]);
+
+router.post('/submit', verifyToken, uploadConfirmProof, confirmController.submitConfirm);
 
 // Personal history
 router.get('/my-history', verifyToken, confirmController.getMyHistory);

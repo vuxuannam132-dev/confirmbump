@@ -14,12 +14,18 @@ import {
   Share2, 
   Eye, 
   FileText,
-  Users
+  Users,
+  Images
 } from 'lucide-react';
 
 export default function TaskDetailModal({ task, isOpen, onClose, onOpenSubmitModal }) {
   const [showProofLightbox, setShowProofLightbox] = useState(false);
+  const [proofIndex, setProofIndex] = useState(0);
   if (!isOpen || !task) return null;
+
+  const submissionImages = Array.isArray(task.mySubmission?.image_urls) && task.mySubmission.image_urls.length > 0 
+    ? task.mySubmission.image_urls 
+    : (task.mySubmission?.image_url ? [task.mySubmission.image_url] : []);
 
   // Platform info
   let platformBg = 'bg-[#1877F2] text-white';
@@ -151,34 +157,63 @@ export default function TaskDetailModal({ task, isOpen, onClose, onOpenSubmitMod
           {/* Submitted Proof (if already submitted) */}
           {task.mySubmission && (
             <div className="pt-4">
-              <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2 flex items-center">
-                <Eye className="w-3.5 h-3.5 mr-1.5 text-blue-600" />
-                Minh chứng bạn đã nộp:
-              </label>
-              <div className="p-3.5 bg-slate-50 rounded-2xl border border-slate-200 flex items-center justify-between gap-3">
-                <div className="flex items-center space-x-3 truncate">
-                  <img 
-                    src={task.mySubmission.image_url} 
-                    alt="Proof" 
-                    className="w-14 h-14 rounded-xl object-cover border border-slate-200 shadow-2xs cursor-pointer hover:opacity-90"
-                    onClick={() => setShowProofLightbox(true)}
-                  />
-                  <div className="truncate">
-                    <p className="text-xs font-bold text-slate-800">
+              <div className="flex items-center justify-between mb-2">
+                <label className="text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider flex items-center">
+                  <Eye className="w-3.5 h-3.5 mr-1.5 text-blue-600" />
+                  Minh chứng bạn đã nộp:
+                </label>
+                {submissionImages.length > 1 && (
+                  <span className="text-[11px] font-bold text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-950/50 px-2 py-0.5 rounded-full flex items-center">
+                    <Images className="w-3 h-3 mr-1" /> {submissionImages.length} ảnh
+                  </span>
+                )}
+              </div>
+
+              <div className="p-3.5 bg-slate-50 dark:bg-slate-800/80 rounded-2xl border border-slate-200 dark:border-slate-700 space-y-3">
+                {/* Thumbnails row / grid */}
+                <div className="flex items-center gap-2 overflow-x-auto py-1 custom-scrollbar">
+                  {submissionImages.map((img, idx) => (
+                    <div 
+                      key={idx}
+                      className="relative w-16 h-16 rounded-xl overflow-hidden border border-slate-200 dark:border-slate-700 flex-shrink-0 cursor-pointer group shadow-2xs"
+                      onClick={() => {
+                        setProofIndex(idx);
+                        setShowProofLightbox(true);
+                      }}
+                    >
+                      <img 
+                        src={img} 
+                        alt={`Proof ${idx + 1}`} 
+                        className="w-full h-full object-cover group-hover:scale-105 transition-transform"
+                      />
+                      <span className="absolute bottom-0.5 right-0.5 bg-black/70 text-white text-[9px] font-bold px-1 rounded">
+                        #{idx + 1}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+
+                <div className="pt-1 border-t border-slate-200/60 dark:border-slate-700/60 flex items-center justify-between text-xs">
+                  <div>
+                    <p className="font-bold text-slate-800 dark:text-slate-200">
                       Nộp lúc: {new Date(task.mySubmission.submitted_at).toLocaleString('vi-VN')}
                     </p>
                     {task.mySubmission.note && (
-                      <p className="text-[11px] text-slate-500 truncate mt-0.5">
+                      <p className="text-[11px] text-slate-500 dark:text-slate-400 italic mt-0.5 line-clamp-1">
                         Lời nhắn: "{task.mySubmission.note}"
                       </p>
                     )}
-                    <span 
-                      className="text-[10px] text-blue-600 font-semibold cursor-pointer hover:underline inline-flex items-center mt-1" 
-                      onClick={() => setShowProofLightbox(true)}
-                    >
-                      Bấm phóng to xem ảnh đầy đủ ↗
-                    </span>
                   </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setProofIndex(0);
+                      setShowProofLightbox(true);
+                    }}
+                    className="text-[11px] font-bold text-blue-600 dark:text-blue-400 hover:underline flex-shrink-0"
+                  >
+                    Xem phóng to ↗
+                  </button>
                 </div>
               </div>
             </div>
@@ -272,7 +307,8 @@ export default function TaskDetailModal({ task, isOpen, onClose, onOpenSubmitMod
       {/* Image Zoom Lightbox Modal */}
       <ImageLightboxModal
         isOpen={showProofLightbox}
-        imageUrl={task.mySubmission?.image_url}
+        images={submissionImages}
+        initialIndex={proofIndex}
         title={`Minh chứng nộp: ${task.title}`}
         onClose={() => setShowProofLightbox(false)}
       />

@@ -2,6 +2,35 @@ const path = require('path');
 const fs = require('fs');
 const db = require('../config/db');
 
+// Helper to normalize submission images (supports both legacy single URL and new multi-image JSON array)
+function formatSubmission(sub) {
+  if (!sub) return sub;
+  let imageUrls = [];
+  if (sub.image_url) {
+    const raw = (typeof sub.image_url === 'string') ? sub.image_url.trim() : '';
+    if (raw.startsWith('[') && raw.endsWith(']')) {
+      try {
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          imageUrls = parsed;
+        } else {
+          imageUrls = [raw];
+        }
+      } catch (e) {
+        imageUrls = [raw];
+      }
+    } else if (raw) {
+      imageUrls = [raw];
+    }
+  }
+
+  return {
+    ...sub,
+    image_url: imageUrls[0] || sub.image_url || '',
+    image_urls: imageUrls
+  };
+}
+
 // Helper to store image depending on environment
 async function processUploadedImage(file) {
   // Option 1: If IMGBB_API_KEY is configured, upload to ImgBB cloud storage
@@ -33,7 +62,7 @@ async function processUploadedImage(file) {
       if (!fs.existsSync(uploadsDir)) {
         fs.mkdirSync(uploadsDir, { recursive: true });
       }
-      const ext = path.extname(file.originalname).toLowerCase() || '.png';
+      const ext = path.extname(file.originalname).toLowerCase() || '.jpg';
       const filename = 'confirm-' + Date.now() + '-' + Math.round(Math.random() * 1e9) + ext;
       const fullPath = path.join(uploadsDir, filename);
       fs.writeFileSync(fullPath, file.buffer);
@@ -44,7 +73,7 @@ async function processUploadedImage(file) {
   }
 
   // Option 3: Fallback Base64 Data URL (Works 100% on Vercel without any external service!)
-  return `data:${file.mimetype || 'image/png'};base64,${file.buffer.toString('base64')}`;
+  return `data:${file.mimetype || 'image/jpeg'};base64,${file.buffer.toString('base64')}`;
 }
 
 // POST /api/confirms/submit
@@ -57,8 +86,26 @@ async function submitConfirm(req, res) {
       return res.status(400).json({ success: false, message: 'Vui lòng cung cấp mã task.' });
     }
 
-    if (!req.file) {
-      return res.status(400).json({ success: false, message: 'Vui lòng chọn ảnh chụp màn hình bằng chứng bump bài!' });
+    // Extract all uploaded files (supports both multiple 'images' and single 'image')
+    let files = [];
+    if (req.files) {
+      if (Array.isArray(req.files)) {
+        files = req.files;
+      } else if (req.files.images) {
+        files = req.files.images;
+      } else if (req.files.image) {
+        files = req.files.image;
+      }
+    } else if (req.file) {
+      files = [req.file];
+    }
+
+    if (!files || files.length === 0) {
+      return res.status(400).json({ success: false, message: 'Vui lòng chọn ít nhất 1 ảnh chụp màn hình bằng chứng bump bài!' });
+    }
+
+    if (files.length > 10) {
+      return res.status(400).json({ success: false, message: 'Hệ thống hỗ trợ tối đa 10 ảnh minh chứng cho một bài viết.' });
     }
 
     const task = await db.get('SELECT * FROM tasks WHERE id = ?', [task_id]);
@@ -82,8 +129,9 @@ async function submitConfirm(req, res) {
       });
     }
 
-    // Process image storage (ImgBB, local disk, or base64)
-    const imageUrl = await processUploadedImage(req.file);
+    // Process all images concurrently
+    const imageUrls = await Promise.all(files.map(f => processUploadedImage(f)));
+    const storedImageUrl = JSON.stringify(imageUrls);
 
     // Check if user already submitted
     const existing = await db.get('SELECT id FROM confirm_submissions WHERE task_id = ? AND user_id = ?', [task_id, currentUser.id]);
@@ -94,26 +142,26 @@ async function submitConfirm(req, res) {
         SET image_url = ?, note = ?, is_makeup = ?, status = 'PENDING', admin_feedback = NULL,
             reviewed_by = NULL, reviewed_at = NULL, submitted_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP
         WHERE id = ?
-      `, [imageUrl, (note || '').trim(), isMakeup, existing.id]);
+      `, [storedImageUrl, (note || '').trim(), isMakeup, existing.id]);
 
       return res.json({
         success: true,
         message: isMakeup === 1 
-          ? 'Nộp lại minh chứng (Nộp bù) thành công! Đang chờ Admin Tổng phê duyệt.' 
-          : 'Nộp lại minh chứng thành công! Đang chờ Admin Tổng phê duyệt.',
+          ? `Nộp lại ${imageUrls.length} ảnh minh chứng (Nộp bù) thành công! Đang chờ Admin Tổng phê duyệt.` 
+          : `Nộp lại ${imageUrls.length} ảnh minh chứng thành công! Đang chờ Admin Tổng phê duyệt.`,
         submissionId: existing.id
       });
     } else {
       const result = await db.run(`
         INSERT INTO confirm_submissions (task_id, user_id, image_url, note, is_makeup, status)
         VALUES (?, ?, ?, ?, ?, 'PENDING')
-      `, [task_id, currentUser.id, imageUrl, (note || '').trim(), isMakeup]);
+      `, [task_id, currentUser.id, storedImageUrl, (note || '').trim(), isMakeup]);
 
       return res.status(201).json({
         success: true,
         message: isMakeup === 1 
-          ? 'Gửi minh chứng nộp bù thành công! Đang chờ Admin Tổng phê duyệt.' 
-          : 'Gửi minh chứng thành công! Đang chờ Admin Tổng phê duyệt.',
+          ? `Gửi ${imageUrls.length} ảnh minh chứng nộp bù thành công! Đang chờ Admin Tổng phê duyệt.` 
+          : `Gửi ${imageUrls.length} ảnh minh chứng thành công! Đang chờ Admin Tổng phê duyệt.`,
         submissionId: result.lastInsertRowid
       });
     }
@@ -168,7 +216,7 @@ async function getReviewQueue(req, res) {
     query += ` ORDER BY CASE WHEN s.status = 'PENDING' THEN 1 ELSE 2 END, s.submitted_at DESC `;
 
     const submissions = await db.all(query, params);
-    return res.json({ success: true, submissions });
+    return res.json({ success: true, submissions: submissions.map(formatSubmission) });
   } catch (error) {
     console.error('Error in getReviewQueue:', error);
     return res.status(500).json({ success: false, message: error.message });
@@ -223,7 +271,7 @@ async function getMyHistory(req, res) {
       ORDER BY s.submitted_at DESC
     `;
     const history = await db.all(query, [currentUser.id]);
-    return res.json({ success: true, history });
+    return res.json({ success: true, history: history.map(formatSubmission) });
   } catch (error) {
     return res.status(500).json({ success: false, message: error.message });
   }
@@ -277,10 +325,12 @@ async function getProgress(req, res) {
         WHERE s.user_id = ?
       `, [user.id]);
 
-      const approvedOnTime = submissions.filter(s => s.status === 'APPROVED' && s.is_makeup === 0).length;
-      const approvedMakeup = submissions.filter(s => s.status === 'APPROVED' && s.is_makeup === 1).length;
-      const pendingCount = submissions.filter(s => s.status === 'PENDING').length;
-      const rejectedCount = submissions.filter(s => s.status === 'REJECTED').length;
+      const formattedSubmissions = submissions.map(formatSubmission);
+
+      const approvedOnTime = formattedSubmissions.filter(s => s.status === 'APPROVED' && s.is_makeup === 0).length;
+      const approvedMakeup = formattedSubmissions.filter(s => s.status === 'APPROVED' && s.is_makeup === 1).length;
+      const pendingCount = formattedSubmissions.filter(s => s.status === 'PENDING').length;
+      const rejectedCount = formattedSubmissions.filter(s => s.status === 'REJECTED').length;
 
       const totalCompleted = approvedOnTime + approvedMakeup;
       const missingCount = Math.max(0, applicableTasks.length - totalCompleted - pendingCount);
@@ -295,7 +345,7 @@ async function getProgress(req, res) {
         rejectedCount,
         missingCount,
         completionRate,
-        submissions
+        submissions: formattedSubmissions
       };
     }));
 
@@ -307,6 +357,7 @@ async function getProgress(req, res) {
 }
 
 module.exports = {
+  formatSubmission,
   submitConfirm,
   getReviewQueue,
   reviewConfirm,

@@ -1,4 +1,5 @@
 const db = require('../config/db');
+const { formatSubmission } = require('./confirmController');
 
 // POST /api/tasks (Only Admin Tổng)
 async function createTask(req, res) {
@@ -126,7 +127,7 @@ async function getTasks(req, res) {
 
       return {
         ...task,
-        mySubmission: sub || null,
+        mySubmission: sub ? formatSubmission(sub) : null,
         myStatus: status,
         canSubmit,
         isMakeupPeriod,

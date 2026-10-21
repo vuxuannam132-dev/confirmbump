@@ -205,7 +205,8 @@ export default function PersonalHistoryPage() {
                       onClick={() => setSelectedProof(item)}
                       className="flex-shrink-0 px-3 py-1.5 rounded-xl bg-white dark:bg-slate-700 border border-slate-200 dark:border-slate-600 text-slate-700 dark:text-slate-200 font-bold text-xs inline-flex items-center shadow-2xs hover:bg-slate-50 dark:hover:bg-slate-600"
                     >
-                      <Eye className="w-3.5 h-3.5 mr-1" /> Xem ảnh
+                      <Eye className="w-3.5 h-3.5 mr-1" />
+                      {item.image_urls && item.image_urls.length > 1 ? `${item.image_urls.length} ảnh` : 'Xem ảnh'}
                     </button>
                   </div>
                 </div>
@@ -262,7 +263,7 @@ export default function PersonalHistoryPage() {
                           className="px-2.5 py-1 rounded-lg bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 font-semibold inline-flex items-center text-xs transition-colors"
                         >
                           <Eye className="w-3.5 h-3.5 mr-1" />
-                          Xem & Phóng to
+                          {item.image_urls && item.image_urls.length > 1 ? `Xem ${item.image_urls.length} ảnh` : 'Xem & Phóng to'}
                         </button>
                       </td>
                       <td className="px-4 py-3.5 max-w-xs">
@@ -290,7 +291,7 @@ export default function PersonalHistoryPage() {
       {/* Image Lightbox Modal with zoom, rotate, and clean download */}
       <ImageLightboxModal
         isOpen={Boolean(selectedProof)}
-        imageUrl={selectedProof?.image_url}
+        images={selectedProof?.image_urls || (selectedProof?.image_url ? [selectedProof.image_url] : [])}
         title={selectedProof ? `Minh chứng nộp: ${selectedProof.task_title}` : ''}
         onClose={() => setSelectedProof(null)}
       />

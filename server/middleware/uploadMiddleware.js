@@ -18,7 +18,10 @@ const fileFilter = (req, file, cb) => {
 
 const upload = multer({
   storage,
-  limits: { fileSize: 4 * 1024 * 1024 }, // 4MB (Vercel payload limit is 4.5MB)
+  limits: { 
+    fileSize: 10 * 1024 * 1024, // 10MB per file
+    files: 10                   // Up to 10 files per request
+  },
   fileFilter
 });
 

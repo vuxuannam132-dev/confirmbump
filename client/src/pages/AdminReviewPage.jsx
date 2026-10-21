@@ -13,7 +13,8 @@ import {
   Clock, 
   Calendar,
   ExternalLink,
-  RefreshCw
+  RefreshCw,
+  Images
 } from 'lucide-react';
 
 export default function AdminReviewPage() {
@@ -260,6 +261,11 @@ export default function AdminReviewPage() {
                       alt="Proof thumbnail"
                       className="w-full h-full object-cover group-hover:scale-105 transition-transform"
                     />
+                    {sub.image_urls && sub.image_urls.length > 1 && (
+                      <span className="absolute top-2 right-2 bg-slate-900/80 backdrop-blur-xs text-white text-[11px] font-bold px-2 py-0.5 rounded-lg flex items-center shadow-sm z-10">
+                        <Images className="w-3 h-3 mr-1" /> {sub.image_urls.length} ảnh
+                      </span>
+                    )}
                     <div className="absolute inset-0 bg-slate-900/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white text-xs font-bold">
                       <Eye className="w-4 h-4 mr-1.5" /> Bấm để xem & duyệt
                     </div>
