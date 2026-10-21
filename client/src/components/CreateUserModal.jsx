@@ -153,8 +153,8 @@ export default function CreateUserModal({ departments, onClose, onSuccess }) {
                   onChange={(e) => setRole(e.target.value)}
                   className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none bg-white"
                 >
-                  <option value="USER">Thành viên (User)</option>
-                  <option value="ADMIN_CAP_2">Admin Cấp 2 (Trưởng Ban)</option>
+                  <option value="USER">CTV (Cộng tác viên)</option>
+                  <option value="ADMIN_CAP_2">BCH (Ban Chấp Hành / Trưởng Ban)</option>
                 </select>
               </div>
 

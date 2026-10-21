@@ -1,11 +1,13 @@
 import React, { useState } from 'react';
-import { X, CheckCircle, XCircle, ExternalLink, Calendar, User, MessageSquare, Loader2 } from 'lucide-react';
+import { X, CheckCircle, XCircle, ExternalLink, Calendar, User, MessageSquare, Loader2, Maximize2, ExternalLink as ExtIcon } from 'lucide-react';
 import DepartmentBadge from './DepartmentBadge';
+import ImageLightboxModal, { openImageInNewTab } from './ImageLightboxModal';
 
 export default function ConfirmReviewModal({ submission, onClose, onReview }) {
   const [rejectMode, setRejectMode] = useState(false);
   const [feedback, setFeedback] = useState('');
   const [loading, setLoading] = useState(false);
+  const [showLightbox, setShowLightbox] = useState(false);
 
   if (!submission) return null;
 
@@ -100,17 +102,41 @@ export default function ConfirmReviewModal({ submission, onClose, onReview }) {
 
           {/* Proof Screenshot Image */}
           <div>
-            <span className="text-xs text-slate-500 font-bold uppercase block mb-2">Ảnh chụp màn hình:</span>
-            <div className="bg-slate-100 rounded-xl p-2 border border-slate-200 text-center">
-              <a href={submission.image_url} target="_blank" rel="noopener noreferrer" title="Bấm để mở ảnh gốc">
-                <img
-                  src={submission.image_url}
-                  alt="Proof screenshot"
-                  className="max-h-96 mx-auto rounded-lg object-contain shadow-sm hover:opacity-95 transition-opacity cursor-zoom-in"
-                />
-              </a>
-              <span className="text-[11px] text-slate-400 mt-1 block">Click vào ảnh để phóng to ở tab mới</span>
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-xs text-slate-500 font-bold uppercase block">Ảnh chụp màn hình:</span>
+              <div className="flex items-center space-x-2">
+                <button
+                  type="button"
+                  onClick={() => setShowLightbox(true)}
+                  className="text-xs font-bold text-blue-600 hover:text-blue-800 flex items-center bg-blue-50 px-2.5 py-1 rounded-lg"
+                >
+                  <Maximize2 className="w-3.5 h-3.5 mr-1" /> Phóng to chi tiết
+                </button>
+                <button
+                  type="button"
+                  onClick={() => openImageInNewTab(submission.image_url)}
+                  className="text-xs font-bold text-slate-600 hover:text-slate-900 flex items-center bg-slate-100 px-2.5 py-1 rounded-lg"
+                  title="Mở ảnh tab mới chống lỗi trắng trang"
+                >
+                  <ExtIcon className="w-3.5 h-3.5 mr-1" /> Tab mới
+                </button>
+              </div>
             </div>
+
+            <div 
+              className="bg-slate-100 rounded-2xl p-2 border border-slate-200 text-center cursor-zoom-in group relative overflow-hidden"
+              onClick={() => setShowLightbox(true)}
+            >
+              <img
+                src={submission.image_url}
+                alt="Proof screenshot"
+                className="max-h-96 mx-auto rounded-xl object-contain shadow-sm group-hover:scale-[1.01] transition-transform"
+              />
+              <div className="absolute inset-0 bg-black/30 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white text-xs font-bold rounded-2xl">
+                <Maximize2 className="w-4 h-4 mr-1.5" /> Bấm để mở trình soi ảnh phóng to
+              </div>
+            </div>
+            <span className="text-[11px] text-slate-400 mt-1 block text-center">Bấm trực tiếp vào ảnh để mở trình soi phóng to, xoay ảnh và tải về</span>
           </div>
 
           {/* Reject Reason Input (if activated) */}
@@ -180,6 +206,14 @@ export default function ConfirmReviewModal({ submission, onClose, onReview }) {
           </div>
         )}
       </div>
+
+      {/* Image Lightbox Modal */}
+      <ImageLightboxModal
+        isOpen={showLightbox}
+        imageUrl={submission.image_url}
+        title={`Minh chứng: ${submission.full_name} (@${submission.username}) - ${submission.task_title}`}
+        onClose={() => setShowLightbox(false)}
+      />
     </div>
   );
 }

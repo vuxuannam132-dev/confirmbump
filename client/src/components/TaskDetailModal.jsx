@@ -1,6 +1,7 @@
-import React from 'react';
+import React, { useState } from 'react';
 import DepartmentBadge from './DepartmentBadge';
 import StatusBadge from './StatusBadge';
+import ImageLightboxModal, { openImageInNewTab } from './ImageLightboxModal';
 import { 
   X, 
   ExternalLink, 
@@ -17,6 +18,7 @@ import {
 } from 'lucide-react';
 
 export default function TaskDetailModal({ task, isOpen, onClose, onOpenSubmitModal }) {
+  const [showProofLightbox, setShowProofLightbox] = useState(false);
   if (!isOpen || !task) return null;
 
   // Platform info
@@ -159,7 +161,7 @@ export default function TaskDetailModal({ task, isOpen, onClose, onOpenSubmitMod
                     src={task.mySubmission.image_url} 
                     alt="Proof" 
                     className="w-14 h-14 rounded-xl object-cover border border-slate-200 shadow-2xs cursor-pointer hover:opacity-90"
-                    onClick={() => window.open(task.mySubmission.image_url, '_blank')}
+                    onClick={() => setShowProofLightbox(true)}
                   />
                   <div className="truncate">
                     <p className="text-xs font-bold text-slate-800">
@@ -170,8 +172,11 @@ export default function TaskDetailModal({ task, isOpen, onClose, onOpenSubmitMod
                         Lời nhắn: "{task.mySubmission.note}"
                       </p>
                     )}
-                    <span className="text-[10px] text-blue-600 font-semibold cursor-pointer hover:underline" onClick={() => window.open(task.mySubmission.image_url, '_blank')}>
-                      Bấm xem ảnh kích thước đầy đủ ↗
+                    <span 
+                      className="text-[10px] text-blue-600 font-semibold cursor-pointer hover:underline inline-flex items-center mt-1" 
+                      onClick={() => setShowProofLightbox(true)}
+                    >
+                      Bấm phóng to xem ảnh đầy đủ ↗
                     </span>
                   </div>
                 </div>
@@ -263,6 +268,14 @@ export default function TaskDetailModal({ task, isOpen, onClose, onOpenSubmitMod
           )}
         </div>
       </div>
+
+      {/* Image Zoom Lightbox Modal */}
+      <ImageLightboxModal
+        isOpen={showProofLightbox}
+        imageUrl={task.mySubmission?.image_url}
+        title={`Minh chứng nộp: ${task.title}`}
+        onClose={() => setShowProofLightbox(false)}
+      />
     </div>
   );
 }

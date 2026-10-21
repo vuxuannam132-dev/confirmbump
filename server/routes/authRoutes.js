@@ -10,6 +10,7 @@ router.post('/forgot-password/send-otp', authController.forgotPasswordSendOtp);
 router.post('/forgot-password/reset', authController.forgotPasswordReset);
 router.get('/departments', authController.getDepartments);
 router.get('/me', verifyToken, authController.getMe);
+router.put('/change-password', verifyToken, authController.changePassword);
 router.delete('/delete-my-account', verifyToken, authController.deleteMyAccount);
 
 module.exports = router;

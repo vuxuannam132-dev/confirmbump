@@ -179,15 +179,15 @@ export default function DashboardPage() {
       </div>
 
       {/* Filter Tabs & Search Bar */}
-      <div className="bg-white p-3.5 sm:p-4 rounded-3xl border border-slate-200/80 shadow-xs flex flex-col md:flex-row items-center justify-between gap-3">
+      <div className="bg-white dark:bg-slate-900 p-3.5 sm:p-4 rounded-3xl border border-slate-200/80 dark:border-slate-800 shadow-xs flex flex-col md:flex-row items-center justify-between gap-3 transition-colors">
         {/* Horizontal Scrollable Tabs */}
         <div className="flex items-center space-x-1.5 overflow-x-auto w-full md:w-auto pb-1 md:pb-0 no-scrollbar">
           <button
             onClick={() => setFilterTab('ALL')}
             className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap ${
               filterTab === 'ALL' 
-                ? 'bg-slate-900 text-white shadow-xs' 
-                : 'text-slate-600 hover:bg-slate-100'
+                ? 'bg-slate-900 dark:bg-slate-100 text-white dark:text-slate-900 shadow-xs' 
+                : 'text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800'
             }`}
           >
             Tất Cả ({totalTasks})
@@ -198,7 +198,7 @@ export default function DashboardPage() {
             className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap ${
               filterTab === 'NEED_SUBMIT' 
                 ? 'bg-red-600 text-white shadow-xs' 
-                : 'text-slate-600 hover:bg-slate-100'
+                : 'text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800'
             }`}
           >
             Cần Nộp ({openCount + makeupNeedCount})
@@ -209,7 +209,7 @@ export default function DashboardPage() {
             className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap ${
               filterTab === 'PENDING' 
                 ? 'bg-blue-600 text-white shadow-xs' 
-                : 'text-slate-600 hover:bg-slate-100'
+                : 'text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800'
             }`}
           >
             Chờ Duyệt ({pendingCount})
@@ -220,7 +220,7 @@ export default function DashboardPage() {
             className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap ${
               filterTab === 'MAKEUP' 
                 ? 'bg-amber-600 text-white shadow-xs' 
-                : 'text-slate-600 hover:bg-slate-100'
+                : 'text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800'
             }`}
           >
             Hạn Bù 3 Ngày ({makeupNeedCount})
@@ -231,7 +231,7 @@ export default function DashboardPage() {
             className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap ${
               filterTab === 'COMPLETED' 
                 ? 'bg-green-600 text-white shadow-xs' 
-                : 'text-slate-600 hover:bg-slate-100'
+                : 'text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800'
             }`}
           >
             Đã Xong ({completedCount})
@@ -247,14 +247,14 @@ export default function DashboardPage() {
               placeholder="Tìm theo tên task..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-8 pr-3 py-1.5 rounded-xl border border-slate-200 text-xs focus:ring-2 focus:ring-blue-500 focus:outline-none"
+              className="w-full pl-8 pr-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white text-xs focus:ring-2 focus:ring-blue-500 focus:outline-none"
             />
           </div>
 
           <select
             value={platformFilter}
             onChange={(e) => setPlatformFilter(e.target.value)}
-            className="px-3 py-1.5 rounded-xl border border-slate-200 text-xs font-bold text-slate-700 bg-white focus:ring-2 focus:ring-blue-500 focus:outline-none"
+            className="px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700 text-xs font-bold text-slate-700 dark:text-slate-200 bg-white dark:bg-slate-800 focus:ring-2 focus:ring-blue-500 focus:outline-none"
           >
             <option value="ALL">Tất cả MXH</option>
             <option value="FACEBOOK">Facebook</option>
@@ -268,13 +268,13 @@ export default function DashboardPage() {
       {loading ? (
         <div className="text-center py-16">
           <div className="w-8 h-8 border-4 border-red-600 border-t-transparent rounded-full animate-spin mx-auto mb-3"></div>
-          <p className="text-xs font-bold text-slate-500">Đang tải nhiệm vụ...</p>
+          <p className="text-xs font-bold text-slate-500 dark:text-slate-400">Đang tải nhiệm vụ...</p>
         </div>
       ) : filteredTasks.length === 0 ? (
-        <div className="text-center py-16 bg-white rounded-3xl border border-dashed border-slate-200 p-6">
-          <CheckSquare className="w-12 h-12 text-slate-300 mx-auto mb-3" />
-          <h3 className="text-sm font-bold text-slate-700">Không tìm thấy task nào</h3>
-          <p className="text-xs text-slate-400 mt-1">Không có nhiệm vụ nào phù hợp với bộ lọc đã chọn.</p>
+        <div className="text-center py-16 bg-white dark:bg-slate-900 rounded-3xl border border-dashed border-slate-200 dark:border-slate-800 p-6">
+          <CheckSquare className="w-12 h-12 text-slate-300 dark:text-slate-700 mx-auto mb-3" />
+          <h3 className="text-sm font-bold text-slate-700 dark:text-slate-300">Không tìm thấy task nào</h3>
+          <p className="text-xs text-slate-400 dark:text-slate-500 mt-1">Không có nhiệm vụ nào phù hợp với bộ lọc đã chọn.</p>
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5">

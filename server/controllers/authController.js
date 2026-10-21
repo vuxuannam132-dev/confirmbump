@@ -223,6 +223,46 @@ function getMe(req, res) {
   });
 }
 
+// PUT /api/auth/change-password
+async function changePassword(req, res) {
+  try {
+    const userId = req.user.id;
+    const { current_password, new_password } = req.body;
+
+    if (!current_password || !new_password) {
+      return res.status(400).json({ success: false, message: 'Vui lòng nhập mật khẩu hiện tại và mật khẩu mới.' });
+    }
+
+    if (new_password.length < 6) {
+      return res.status(400).json({ success: false, message: 'Mật khẩu mới phải có tối thiểu 6 ký tự.' });
+    }
+
+    // Fetch user with password_hash
+    const user = await db.get('SELECT id, password_hash FROM users WHERE id = ?', [userId]);
+    if (!user) {
+      return res.status(404).json({ success: false, message: 'Không tìm thấy thông tin tài khoản.' });
+    }
+
+    const isMatch = bcrypt.compareSync(current_password, user.password_hash);
+    if (!isMatch) {
+      return res.status(400).json({ success: false, message: 'Mật khẩu hiện tại không chính xác.' });
+    }
+
+    const salt = bcrypt.genSaltSync(10);
+    const password_hash = bcrypt.hashSync(new_password, salt);
+
+    await db.run('UPDATE users SET password_hash = ? WHERE id = ?', [password_hash, userId]);
+
+    return res.json({
+      success: true,
+      message: 'Đổi mật khẩu thành công! Hãy ghi nhớ mật khẩu mới của bạn.'
+    });
+  } catch (error) {
+    console.error('Error in changePassword:', error);
+    return res.status(500).json({ success: false, message: 'Lỗi đổi mật khẩu: ' + error.message });
+  }
+}
+
 // DELETE /api/auth/delete-my-account
 async function deleteMyAccount(req, res) {
   try {
@@ -255,6 +295,7 @@ module.exports = {
   forgotPasswordSendOtp,
   forgotPasswordReset,
   getMe,
+  changePassword,
   deleteMyAccount,
   getDepartments
 };

@@ -320,7 +320,7 @@ export default function AdminUsersPage() {
                       </td>
                       <td className="px-4 py-3.5">
                         <span className={`px-2 py-0.5 rounded-full text-[10px] font-extrabold uppercase ${roleBadge}`}>
-                          {u.role === 'ADMIN_TONG' ? 'Admin Tổng' : (u.role === 'ADMIN_CAP_2' ? 'Trưởng Ban' : 'Thành viên')}
+                          {u.role === 'ADMIN_TONG' ? 'BCH (Admin Tổng)' : (u.role === 'ADMIN_CAP_2' ? 'BCH' : 'CTV')}
                         </span>
                       </td>
                       <td className="px-4 py-3.5">

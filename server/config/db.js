@@ -14,28 +14,44 @@ const databaseUrl = process.env.DATABASE_URL || process.env.POSTGRES_URL;
 if (databaseUrl && (databaseUrl.startsWith('postgres://') || databaseUrl.startsWith('postgresql://'))) {
   isPg = true;
 
+  // 1. Initialize Neon Serverless HTTP Driver if hosted on neon.tech
   if (databaseUrl.includes('neon.tech')) {
-    // Official Neon Serverless HTTP driver - Immune to TCP connection timeout on Vercel!
     isNeon = true;
-    const { neon } = require('@neondatabase/serverless');
-    neonSql = neon(databaseUrl, { fullResults: true });
-    console.log('⚡ Sử dụng Neon Serverless HTTP Driver (Chống timeout trên Vercel)...');
-  } else {
-    // Standard PostgreSQL Pool for other cloud providers (Supabase, Render, etc.)
+    try {
+      const { neon } = require('@neondatabase/serverless');
+      neonSql = neon(databaseUrl, {
+        fullResults: true,
+        fetchOptions: {
+          cache: 'no-store'
+        }
+      });
+      console.log('⚡ Neon Serverless HTTP Driver khởi tạo thành công...');
+    } catch (e) {
+      console.warn('⚠️ Không thể nạp @neondatabase/serverless:', e.message);
+    }
+  }
+
+  // 2. Initialize pg.Pool as robust fallback or primary PostgreSQL driver
+  try {
     const { Pool } = require('pg');
     pgPool = new Pool({
       connectionString: databaseUrl,
       ssl: {
         rejectUnauthorized: false
       },
-      max: 10,
-      connectionTimeoutMillis: 30000,
-      idleTimeoutMillis: 30000
+      max: 2,
+      connectionTimeoutMillis: 10000,
+      idleTimeoutMillis: 10000
     });
-    console.log('🐘 Sử dụng PostgreSQL Pool...');
+    pgPool.on('error', (err) => {
+      console.warn('⚠️ pgPool idle client warning:', err.message);
+    });
+    console.log('🐘 PostgreSQL Pool đã sẵn sàng...');
+  } catch (e) {
+    console.warn('⚠️ Không thể nạp pg.Pool:', e.message);
   }
 } else {
-  // Fallback to SQLite
+  // Fallback to SQLite (local development)
   const { DatabaseSync } = require('node:sqlite');
   const dbPath = process.env.VERCEL 
     ? path.join('/tmp', 'database.sqlite') 
@@ -55,19 +71,53 @@ function translateQuery(sql) {
   return sql.replace(/\?/g, () => `$${index++}`);
 }
 
+/**
+ * Execute query across Neon HTTP driver with retry and automatic pg.Pool fallback
+ */
+async function executePgQuery(sql, params = [], retries = 2) {
+  const q = translateQuery(sql);
+
+  if (isNeon && neonSql) {
+    for (let attempt = 0; attempt <= retries; attempt++) {
+      try {
+        const res = await neonSql.query(q, params);
+        return res;
+      } catch (err) {
+        const isNetworkErr = err?.name === 'TypeError' || 
+                             err?.message?.includes('fetch failed') || 
+                             err?.message?.includes('timeout') ||
+                             err?.message?.includes('undici');
+        if (isNetworkErr && attempt < retries) {
+          console.warn(`[Neon Driver] Thử lại lần ${attempt + 1}/${retries} do: "${err.message}"`);
+          await new Promise(r => setTimeout(r, 250 * (attempt + 1)));
+          continue;
+        }
+
+        // Automatic fallback to pgPool if Neon HTTP fetch fails
+        if (pgPool) {
+          console.warn(`[Neon Fallback -> pgPool] Chuyển truy vấn sang pgPool: ${err.message}`);
+          return await pgPool.query(q, params);
+        }
+        throw err;
+      }
+    }
+  }
+
+  if (pgPool) {
+    return await pgPool.query(q, params);
+  }
+
+  throw new Error('Không có driver PostgreSQL khả dụng.');
+}
+
 const db = {
   isPg,
 
   async get(sql, params = []) {
-    if (isNeon) {
-      const q = translateQuery(sql);
-      const res = await neonSql.query(q, params);
+    if (isPg) {
+      const res = await executePgQuery(sql, params);
       const rows = res.rows || (Array.isArray(res) ? res : []);
       return rows[0] || null;
-    } else if (isPg) {
-      const q = translateQuery(sql);
-      const res = await pgPool.query(q, params);
-      return res.rows[0] || null;
     } else {
       const stmt = sqliteDb.prepare(sql);
       return stmt.get(...params) || null;
@@ -75,14 +125,9 @@ const db = {
   },
 
   async all(sql, params = []) {
-    if (isNeon) {
-      const q = translateQuery(sql);
-      const res = await neonSql.query(q, params);
+    if (isPg) {
+      const res = await executePgQuery(sql, params);
       return res.rows || (Array.isArray(res) ? res : []);
-    } else if (isPg) {
-      const q = translateQuery(sql);
-      const res = await pgPool.query(q, params);
-      return res.rows;
     } else {
       const stmt = sqliteDb.prepare(sql);
       return stmt.all(...params);
@@ -90,23 +135,15 @@ const db = {
   },
 
   async run(sql, params = []) {
-    if (isNeon) {
-      let q = translateQuery(sql);
+    if (isPg) {
+      let q = sql;
       if (/^\s*insert\s+/i.test(q) && !/returning\s+/i.test(q)) {
         q += ' RETURNING id';
       }
-      const res = await neonSql.query(q, params);
+      const res = await executePgQuery(q, params);
       const rows = res.rows || (Array.isArray(res) ? res : []);
       const lastInsertRowid = rows[0]?.id || null;
       return { lastInsertRowid, changes: res.rowCount !== undefined ? res.rowCount : rows.length };
-    } else if (isPg) {
-      let q = translateQuery(sql);
-      if (/^\s*insert\s+/i.test(q) && !/returning\s+/i.test(q)) {
-        q += ' RETURNING id';
-      }
-      const res = await pgPool.query(q, params);
-      const lastInsertRowid = res.rows[0]?.id || null;
-      return { lastInsertRowid, changes: res.rowCount };
     } else {
       const stmt = sqliteDb.prepare(sql);
       const res = stmt.run(...params);
@@ -115,10 +152,8 @@ const db = {
   },
 
   async exec(sql) {
-    if (isNeon) {
-      return await neonSql.query(sql);
-    } else if (isPg) {
-      return await pgPool.query(sql);
+    if (isPg) {
+      return await executePgQuery(sql);
     } else {
       return sqliteDb.exec(sql);
     }
@@ -129,11 +164,14 @@ const db = {
 const OFFICIAL_ADMIN_USERNAME = 'admin_BCH_doantruongdkhbt';
 const OFFICIAL_ADMIN_PASSWORD_HASH = bcrypt.hashSync('DOANKETXUNGDANG2026@*', 10);
 
-let initPromise = null;
-async function initDb() {
-  if (initPromise) return initPromise;
+let isInitialized = false;
+let initializingPromise = null;
 
-  initPromise = (async () => {
+async function initDb() {
+  if (isInitialized) return;
+  if (initializingPromise) return initializingPromise;
+
+  initializingPromise = (async () => {
     try {
       if (isPg) {
         // Create tables one by one for Postgres/Neon
@@ -303,13 +341,16 @@ async function initDb() {
         await db.run('UPDATE users SET password_hash = ? WHERE username = ?', [OFFICIAL_ADMIN_PASSWORD_HASH, OFFICIAL_ADMIN_USERNAME]);
       }
 
+      isInitialized = true;
+      console.log('✅ Khởi tạo cơ sở dữ liệu hoàn tất!');
     } catch (err) {
+      initializingPromise = null; // Reset so subsequent requests can retry!
       console.error('❌ Lỗi khởi tạo Database:', err);
       throw err;
     }
   })();
 
-  return initPromise;
+  return initializingPromise;
 }
 
 initDb().catch(e => console.error('initDb error:', e));
