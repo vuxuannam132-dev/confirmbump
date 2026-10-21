@@ -150,6 +150,73 @@ async function login(req, res) {
   }
 }
 
+// POST /api/auth/forgot-password/send-otp
+async function forgotPasswordSendOtp(req, res) {
+  try {
+    const { email } = req.body;
+    if (!email || !email.includes('@')) {
+      return res.status(400).json({ success: false, message: 'Vui lòng cung cấp địa chỉ email hợp lệ.' });
+    }
+
+    const cleanEmail = email.trim().toLowerCase();
+
+    // Check if user exists with this email
+    const user = await db.get('SELECT id, full_name FROM users WHERE LOWER(email) = ?', [cleanEmail]);
+    if (!user) {
+      return res.status(404).json({ success: false, message: 'Không tìm thấy tài khoản nào gắn với email này.' });
+    }
+
+    const { otpCode } = await generateAndSendOtp(cleanEmail);
+
+    return res.json({
+      success: true,
+      message: `Đã tạo và gửi mã xác thực 6 số về email của bạn (${cleanEmail}).`,
+      devOtp: otpCode
+    });
+  } catch (error) {
+    console.error('Error in forgotPasswordSendOtp:', error);
+    return res.status(500).json({ success: false, message: 'Lỗi khi gửi mã khôi phục: ' + error.message });
+  }
+}
+
+// POST /api/auth/forgot-password/reset
+async function forgotPasswordReset(req, res) {
+  try {
+    const { email, otp_code, new_password } = req.body;
+
+    if (!email || !otp_code || !new_password) {
+      return res.status(400).json({ success: false, message: 'Vui lòng cung cấp đầy đủ email, mã xác minh và mật khẩu mới.' });
+    }
+
+    if (new_password.length < 6) {
+      return res.status(400).json({ success: false, message: 'Mật khẩu mới phải có tối thiểu 6 ký tự.' });
+    }
+
+    const cleanEmail = email.trim().toLowerCase();
+
+    // Verify OTP
+    const isValidOtp = await verifyOtp(cleanEmail, otp_code);
+    if (!isValidOtp) {
+      return res.status(400).json({ success: false, message: 'Mã xác minh không chính xác hoặc đã hết hạn.' });
+    }
+
+    // Hash new password
+    const salt = bcrypt.genSaltSync(10);
+    const password_hash = bcrypt.hashSync(new_password, salt);
+
+    // Update password
+    await db.run('UPDATE users SET password_hash = ? WHERE LOWER(email) = ?', [password_hash, cleanEmail]);
+
+    return res.json({
+      success: true,
+      message: 'Đặt lại mật khẩu thành công! Bạn có thể đăng nhập ngay bằng mật khẩu mới.'
+    });
+  } catch (error) {
+    console.error('Error in forgotPasswordReset:', error);
+    return res.status(500).json({ success: false, message: 'Lỗi đặt lại mật khẩu: ' + error.message });
+  }
+}
+
 // GET /api/auth/me
 function getMe(req, res) {
   return res.json({
@@ -187,6 +254,8 @@ module.exports = {
   sendOtp,
   register,
   login,
+  forgotPasswordSendOtp,
+  forgotPasswordReset,
   getMe,
   deleteMyAccount,
   getDepartments

@@ -3,27 +3,39 @@ const fs = require('fs');
 const bcrypt = require('bcryptjs');
 
 let isPg = false;
-let pool = null;
+let isNeon = false;
+let neonSql = null;
+let pgPool = null;
 let sqliteDb = null;
 
-// Determine if we should use PostgreSQL (Neon, Supabase, Vercel Postgres)
+// Determine if we should use PostgreSQL
 const databaseUrl = process.env.DATABASE_URL || process.env.POSTGRES_URL;
 
 if (databaseUrl && (databaseUrl.startsWith('postgres://') || databaseUrl.startsWith('postgresql://'))) {
   isPg = true;
-  const { Pool } = require('pg');
-  pool = new Pool({
-    connectionString: databaseUrl,
-    ssl: {
-      rejectUnauthorized: false
-    },
-    max: 10,
-    idleTimeoutMillis: 30000,
-    connectionTimeoutMillis: 10000
-  });
-  console.log('🐘 Đang kết nối Cơ sở dữ liệu Cloud PostgreSQL (Neon / Supabase)...');
+
+  if (databaseUrl.includes('neon.tech')) {
+    // Official Neon Serverless HTTP driver - Immune to TCP connection timeout on Vercel!
+    isNeon = true;
+    const { neon } = require('@neondatabase/serverless');
+    neonSql = neon(databaseUrl, { fullResults: true });
+    console.log('⚡ Sử dụng Neon Serverless HTTP Driver (Chống timeout trên Vercel)...');
+  } else {
+    // Standard PostgreSQL Pool for other cloud providers (Supabase, Render, etc.)
+    const { Pool } = require('pg');
+    pgPool = new Pool({
+      connectionString: databaseUrl,
+      ssl: {
+        rejectUnauthorized: false
+      },
+      max: 10,
+      connectionTimeoutMillis: 30000,
+      idleTimeoutMillis: 30000
+    });
+    console.log('🐘 Sử dụng PostgreSQL Pool...');
+  }
 } else {
-  // Fallback to SQLite (on Vercel Serverless, use /tmp which is writable)
+  // Fallback to SQLite
   const { DatabaseSync } = require('node:sqlite');
   const dbPath = process.env.VERCEL 
     ? path.join('/tmp', 'database.sqlite') 
@@ -31,7 +43,7 @@ if (databaseUrl && (databaseUrl.startsWith('postgres://') || databaseUrl.startsW
 
   sqliteDb = new DatabaseSync(dbPath);
   sqliteDb.exec('PRAGMA foreign_keys = ON;');
-  console.log(`📦 Đang sử dụng SQLite tại: ${dbPath}`);
+  console.log(`📦 Sử dụng SQLite tại: ${dbPath}`);
 }
 
 /**
@@ -47,9 +59,13 @@ const db = {
   isPg,
 
   async get(sql, params = []) {
-    if (isPg) {
+    if (isNeon) {
       const q = translateQuery(sql);
-      const res = await pool.query(q, params);
+      const res = await neonSql(q, params);
+      return res.rows ? res.rows[0] || null : (res[0] || null);
+    } else if (isPg) {
+      const q = translateQuery(sql);
+      const res = await pgPool.query(q, params);
       return res.rows[0] || null;
     } else {
       const stmt = sqliteDb.prepare(sql);
@@ -58,9 +74,13 @@ const db = {
   },
 
   async all(sql, params = []) {
-    if (isPg) {
+    if (isNeon) {
       const q = translateQuery(sql);
-      const res = await pool.query(q, params);
+      const res = await neonSql(q, params);
+      return res.rows || (Array.isArray(res) ? res : []);
+    } else if (isPg) {
+      const q = translateQuery(sql);
+      const res = await pgPool.query(q, params);
       return res.rows;
     } else {
       const stmt = sqliteDb.prepare(sql);
@@ -69,12 +89,21 @@ const db = {
   },
 
   async run(sql, params = []) {
-    if (isPg) {
+    if (isNeon) {
       let q = translateQuery(sql);
       if (/^\s*insert\s+/i.test(q) && !/returning\s+/i.test(q)) {
         q += ' RETURNING id';
       }
-      const res = await pool.query(q, params);
+      const res = await neonSql(q, params);
+      const rows = res.rows || (Array.isArray(res) ? res : []);
+      const lastInsertRowid = rows[0]?.id || null;
+      return { lastInsertRowid, changes: res.rowCount || rows.length };
+    } else if (isPg) {
+      let q = translateQuery(sql);
+      if (/^\s*insert\s+/i.test(q) && !/returning\s+/i.test(q)) {
+        q += ' RETURNING id';
+      }
+      const res = await pgPool.query(q, params);
       const lastInsertRowid = res.rows[0]?.id || null;
       return { lastInsertRowid, changes: res.rowCount };
     } else {
@@ -85,8 +114,10 @@ const db = {
   },
 
   async exec(sql) {
-    if (isPg) {
-      return await pool.query(sql);
+    if (isNeon) {
+      return await neonSql(sql);
+    } else if (isPg) {
+      return await pgPool.query(sql);
     } else {
       return sqliteDb.exec(sql);
     }
@@ -104,7 +135,7 @@ async function initDb() {
   initPromise = (async () => {
     try {
       if (isPg) {
-        // PostgreSQL schema tables
+        // Create tables one by one for Postgres/Neon
         await db.exec(`
           CREATE TABLE IF NOT EXISTS departments (
             id SERIAL PRIMARY KEY,
@@ -112,7 +143,9 @@ async function initDb() {
             name VARCHAR(100) NOT NULL,
             color VARCHAR(20) DEFAULT '#2563EB'
           );
+        `);
 
+        await db.exec(`
           CREATE TABLE IF NOT EXISTS email_otps (
             id SERIAL PRIMARY KEY,
             email VARCHAR(255) NOT NULL,
@@ -120,7 +153,9 @@ async function initDb() {
             expires_at TIMESTAMPTZ NOT NULL,
             created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
           );
+        `);
 
+        await db.exec(`
           CREATE TABLE IF NOT EXISTS users (
             id SERIAL PRIMARY KEY,
             username VARCHAR(100) UNIQUE NOT NULL,
@@ -135,7 +170,9 @@ async function initDb() {
             created_by INTEGER REFERENCES users(id),
             created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
           );
+        `);
 
+        await db.exec(`
           CREATE TABLE IF NOT EXISTS tasks (
             id SERIAL PRIMARY KEY,
             title VARCHAR(255) NOT NULL,
@@ -148,7 +185,9 @@ async function initDb() {
             makeup_deadline TIMESTAMPTZ NOT NULL,
             created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
           );
+        `);
 
+        await db.exec(`
           CREATE TABLE IF NOT EXISTS confirm_submissions (
             id SERIAL PRIMARY KEY,
             task_id INTEGER NOT NULL REFERENCES tasks(id) ON DELETE CASCADE,
@@ -165,7 +204,7 @@ async function initDb() {
           );
         `);
       } else {
-        // SQLite schema tables
+        // SQLite schema
         sqliteDb.exec(`
           CREATE TABLE IF NOT EXISTS departments (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -260,7 +299,6 @@ async function initDb() {
         ]);
         console.log(`✅ Khởi tạo tài khoản Admin Tổng chính thức: ${OFFICIAL_ADMIN_USERNAME}`);
       } else {
-        // Update password to ensure it matches DOANKETXUNGDANG2026@*
         await db.run('UPDATE users SET password_hash = ? WHERE username = ?', [OFFICIAL_ADMIN_PASSWORD_HASH, OFFICIAL_ADMIN_USERNAME]);
       }
 
@@ -282,7 +320,6 @@ async function initDb() {
   return initPromise;
 }
 
-// Auto init
 initDb().catch(e => console.error('initDb error:', e));
 
 module.exports = db;
