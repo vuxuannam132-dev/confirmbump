@@ -13,10 +13,11 @@ import {
   Menu,
   X,
   ChevronRight,
-  Shield
+  Shield,
+  Smartphone
 } from 'lucide-react';
 
-export default function Navbar({ activeTab, setActiveTab }) {
+export default function Navbar({ activeTab, setActiveTab, onOpenInstallAppModal }) {
   const { user, logout, isAdminTong, isAdminCap2 } = useAuth();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
@@ -103,6 +104,19 @@ export default function Navbar({ activeTab, setActiveTab }) {
 
           {/* Right Section: Desktop User Profile & Hamburger Mobile */}
           <div className="flex items-center space-x-2 sm:space-x-3">
+            {/* Install App Button */}
+            {onOpenInstallAppModal && (
+              <button
+                type="button"
+                onClick={onOpenInstallAppModal}
+                className="hidden md:inline-flex items-center space-x-1.5 px-3 py-1.5 rounded-xl text-xs font-bold bg-slate-100 hover:bg-slate-200/80 text-slate-700 transition-colors shadow-2xs border border-slate-200"
+                title="Cài đặt App vào màn hình chính / Tải APK"
+              >
+                <Smartphone className="w-3.5 h-3.5 text-red-600" />
+                <span>Cài Đặt App</span>
+              </button>
+            )}
+
             {/* Desktop User Info */}
             <div className="hidden sm:flex flex-col items-end">
               <div className="flex items-center space-x-1.5">
@@ -185,6 +199,24 @@ export default function Navbar({ activeTab, setActiveTab }) {
                 </button>
               );
             })}
+
+            {/* Mobile Install App Button */}
+            {onOpenInstallAppModal && (
+              <button
+                type="button"
+                onClick={() => {
+                  setMobileMenuOpen(false);
+                  onOpenInstallAppModal();
+                }}
+                className="w-full flex items-center justify-between px-3.5 py-3 rounded-xl text-xs font-extrabold bg-gradient-to-r from-red-50 to-blue-50 text-red-700 border border-red-200/60 shadow-2xs mt-2"
+              >
+                <div className="flex items-center space-x-3">
+                  <Smartphone className="w-4 h-4 text-red-600" />
+                  <span>Cài Đặt App / Tải APK Android</span>
+                </div>
+                <span className="text-[10px] font-black bg-red-600 text-white px-2 py-0.5 rounded-full">App</span>
+              </button>
+            )}
           </div>
         </div>
       )}
