@@ -40,6 +40,48 @@ html.rgb body {
   color: #F8FAFC;
 }
 
+/* Universal Dark & RGB Mode Input & Textbox Legibility */
+html.dark input,
+html.dark textarea,
+html.dark select,
+html.rgb input,
+html.rgb textarea,
+html.rgb select {
+  background-color: #1E293B !important;
+  color: #FFFFFF !important;
+  border-color: #475569 !important;
+}
+
+html.dark input::placeholder,
+html.dark textarea::placeholder,
+html.rgb input::placeholder,
+html.rgb textarea::placeholder {
+  color: #94A3B8 !important;
+}
+
+html.dark input:focus,
+html.dark textarea:focus,
+html.dark select:focus,
+html.rgb input:focus,
+html.rgb textarea:focus,
+html.rgb select:focus {
+  background-color: #0F172A !important;
+  color: #FFFFFF !important;
+  border-color: #3B82F6 !important;
+}
+
+html.dark option,
+html.rgb option {
+  background-color: #1E293B !important;
+  color: #FFFFFF !important;
+}
+
+/* Fix description textboxes and pre-lines in dark/RGB mode */
+html.dark .select-text,
+html.rgb .select-text {
+  color: #F8FAFC !important;
+}
+
 /* Safe Area Inset Helpers */
 .pt-safe-top {
   padding-top: max(env(safe-area-inset-top, 0px), 12px);

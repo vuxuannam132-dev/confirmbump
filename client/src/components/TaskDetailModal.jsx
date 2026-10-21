@@ -49,11 +49,11 @@ export default function TaskDetailModal({ task, isOpen, onClose, onOpenSubmitMod
       onClick={onClose}
     >
       <div 
-        className="bg-white rounded-3xl border border-slate-100 shadow-2xl max-w-xl w-full max-h-[92vh] flex flex-col overflow-hidden animate-in zoom-in-95 duration-150"
+        className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-100 dark:border-slate-800 shadow-2xl max-w-xl w-full max-h-[92vh] flex flex-col overflow-hidden animate-in zoom-in-95 duration-150"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="p-5 border-b border-slate-100 flex items-start justify-between gap-3 bg-slate-50/50">
+        <div className="p-5 border-b border-slate-100 dark:border-slate-800 flex items-start justify-between gap-3 bg-slate-50/50 dark:bg-slate-800/50">
           <div className="space-y-2">
             <div className="flex flex-wrap items-center gap-1.5">
               <span className={`px-2.5 py-1 rounded-xl text-xs font-black uppercase tracking-wider flex items-center shadow-2xs ${platformBg}`}>
@@ -71,7 +71,7 @@ export default function TaskDetailModal({ task, isOpen, onClose, onOpenSubmitMod
 
           <button
             onClick={onClose}
-            className="p-2 text-slate-400 hover:text-slate-700 hover:bg-slate-200/60 rounded-full transition-colors"
+            className="p-2 text-slate-400 hover:text-slate-700 dark:hover:text-white hover:bg-slate-200/60 dark:hover:bg-slate-800 rounded-full transition-colors"
             title="Đóng"
           >
             <X className="w-5 h-5" />
@@ -79,13 +79,13 @@ export default function TaskDetailModal({ task, isOpen, onClose, onOpenSubmitMod
         </div>
 
         {/* Scrollable Content Body */}
-        <div className="p-5 sm:p-6 overflow-y-auto space-y-5 flex-1 divide-y divide-slate-100">
+        <div className="p-5 sm:p-6 overflow-y-auto space-y-5 flex-1 divide-y divide-slate-100 dark:divide-slate-800">
           {/* Title */}
           <div>
-            <h2 className="text-base sm:text-lg font-black text-slate-900 leading-snug">
+            <h2 className="text-base sm:text-lg font-black text-slate-900 dark:text-white leading-snug">
               {task.title}
             </h2>
-            <div className="mt-2 text-xs text-slate-400 flex items-center space-x-2">
+            <div className="mt-2 text-xs text-slate-400 dark:text-slate-500 flex items-center space-x-2">
               <span>Mã task: #{task.id}</span>
               <span>•</span>
               <span>Đăng lúc: {new Date(task.created_at).toLocaleString('vi-VN')}</span>
@@ -94,39 +94,39 @@ export default function TaskDetailModal({ task, isOpen, onClose, onOpenSubmitMod
 
           {/* Social Media Link */}
           <div className="pt-4">
-            <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">
+            <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-2">
               Liên kết bài viết cần bump:
             </label>
             <a
               href={task.post_url}
               target="_blank"
               rel="noopener noreferrer"
-              className="flex items-center justify-between p-3.5 rounded-2xl bg-blue-50/80 border border-blue-200 text-blue-700 hover:bg-blue-100/80 transition-all font-bold text-xs sm:text-sm group"
+              className="flex items-center justify-between p-3.5 rounded-2xl bg-blue-50/80 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-900 text-blue-700 dark:text-blue-300 hover:bg-blue-100/80 dark:hover:bg-blue-900/40 transition-all font-bold text-xs sm:text-sm group"
             >
               <span className="flex items-center truncate mr-2">
-                <Share2 className="w-4 h-4 mr-2.5 flex-shrink-0 text-blue-600 group-hover:rotate-12 transition-transform" />
+                <Share2 className="w-4 h-4 mr-2.5 flex-shrink-0 text-blue-600 dark:text-blue-400 group-hover:rotate-12 transition-transform" />
                 <span className="truncate">Truy cập bài đăng {platformLabel} để tương tác</span>
               </span>
-              <ExternalLink className="w-4 h-4 flex-shrink-0 text-blue-600" />
+              <ExternalLink className="w-4 h-4 flex-shrink-0 text-blue-600 dark:text-blue-400" />
             </a>
           </div>
 
           {/* Requirements & Description */}
           <div className="pt-4">
             <div className="flex items-center justify-between mb-2">
-              <label className="text-xs font-bold text-slate-700 uppercase tracking-wider flex items-center">
+              <label className="text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider flex items-center">
                 <FileText className="w-3.5 h-3.5 mr-1.5 text-red-600" />
                 Yêu cầu & Hướng dẫn chi tiết:
               </label>
-              <span className="text-[11px] text-slate-400 font-medium">Đọc kỹ để thực hiện đúng</span>
+              <span className="text-[11px] text-slate-400 dark:text-slate-500 font-medium">Đọc kỹ để thực hiện đúng</span>
             </div>
             
             {task.description ? (
-              <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200/80 text-xs sm:text-sm text-slate-800 leading-relaxed whitespace-pre-line font-normal select-text max-h-72 overflow-y-auto custom-scrollbar">
+              <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/80 border border-slate-200/80 dark:border-slate-700 text-xs sm:text-sm text-slate-800 dark:text-slate-100 leading-relaxed whitespace-pre-line font-normal select-text max-h-72 overflow-y-auto custom-scrollbar">
                 {task.description}
               </div>
             ) : (
-              <p className="text-xs text-slate-400 italic bg-slate-50 p-4 rounded-2xl border border-slate-100">
+              <p className="text-xs text-slate-400 dark:text-slate-500 italic bg-slate-50 dark:bg-slate-800 p-4 rounded-2xl border border-slate-100 dark:border-slate-700">
                 Không có yêu cầu bằng văn bản. Đoàn viên vui lòng tương tác like/thả tim, comment tích cực và tag bạn bè.
               </p>
             )}
@@ -191,13 +191,13 @@ export default function TaskDetailModal({ task, isOpen, onClose, onOpenSubmitMod
             </label>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
               {/* Official Deadline */}
-              <div className="p-3 rounded-2xl bg-slate-50 border border-slate-200 flex items-center space-x-3">
-                <div className="w-8 h-8 rounded-xl bg-blue-100 text-blue-600 flex items-center justify-center flex-shrink-0">
+              <div className="p-3 rounded-2xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 flex items-center space-x-3">
+                <div className="w-8 h-8 rounded-xl bg-blue-100 dark:bg-blue-900/60 text-blue-600 dark:text-blue-300 flex items-center justify-center flex-shrink-0">
                   <Calendar className="w-4 h-4" />
                 </div>
                 <div>
                   <p className="text-[10px] font-bold text-slate-400 uppercase">Hạn chót ban đầu</p>
-                  <p className={`text-xs font-black ${isPastDeadline ? 'text-slate-400 line-through' : 'text-slate-800'}`}>
+                  <p className={`text-xs font-black ${isPastDeadline ? 'text-slate-400 line-through' : 'text-slate-800 dark:text-white'}`}>
                     {deadlineDate.toLocaleString('vi-VN', { hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit', year: 'numeric' })}
                   </p>
                 </div>
@@ -206,20 +206,20 @@ export default function TaskDetailModal({ task, isOpen, onClose, onOpenSubmitMod
               {/* Makeup Deadline */}
               <div className={`p-3 rounded-2xl border flex items-center space-x-3 ${
                 isPastDeadline && !isPastMakeup
-                  ? 'bg-amber-50 border-amber-200'
-                  : 'bg-slate-50 border-slate-200'
+                  ? 'bg-amber-50 dark:bg-amber-950/40 border-amber-200 dark:border-amber-800'
+                  : 'bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700'
               }`}>
                 <div className={`w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0 ${
                   isPastDeadline && !isPastMakeup 
-                    ? 'bg-amber-200 text-amber-800' 
-                    : 'bg-slate-200 text-slate-600'
+                    ? 'bg-amber-200 dark:bg-amber-900 text-amber-800 dark:text-amber-200' 
+                    : 'bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300'
                 }`}>
                   <Clock className="w-4 h-4" />
                 </div>
                 <div>
                   <p className="text-[10px] font-bold text-slate-400 uppercase">Hạn nộp bù (3 ngày)</p>
                   <p className={`text-xs font-black ${
-                    isPastDeadline && !isPastMakeup ? 'text-amber-800' : 'text-slate-700'
+                    isPastDeadline && !isPastMakeup ? 'text-amber-800 dark:text-amber-300' : 'text-slate-700 dark:text-slate-200'
                   }`}>
                     {makeupDeadlineDate.toLocaleString('vi-VN', { hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit', year: 'numeric' })}
                   </p>
@@ -230,10 +230,10 @@ export default function TaskDetailModal({ task, isOpen, onClose, onOpenSubmitMod
         </div>
 
         {/* Footer Actions */}
-        <div className="p-4 bg-slate-50 border-t border-slate-100 flex items-center justify-between gap-3">
+        <div className="p-4 bg-slate-50 dark:bg-slate-800 border-t border-slate-100 dark:border-slate-700 flex items-center justify-between gap-3">
           <button
             onClick={onClose}
-            className="px-4 py-2.5 rounded-xl border border-slate-200 text-slate-700 hover:bg-slate-100 font-bold text-xs transition-colors"
+            className="px-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 font-bold text-xs transition-colors"
           >
             Đóng
           </button>

@@ -13,6 +13,7 @@ router.post('/', verifyToken, requireAdmin, userController.createUser);
 router.put('/:id/approve', verifyToken, requireAdminTong, userController.approveUser);
 router.put('/:id/reject', verifyToken, requireAdminTong, userController.rejectUser);
 router.put('/:id/change-department', verifyToken, requireAdminTong, userController.changeDepartment);
+router.put('/:id/change-role', verifyToken, requireAdminTong, userController.changeRole);
 
 // Delete user: Admin Tổng deletes any user, Admin 2 deletes user in his ban
 router.delete('/:id', verifyToken, requireAdmin, userController.deleteUser);

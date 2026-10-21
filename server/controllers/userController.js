@@ -153,6 +153,37 @@ async function changeDepartment(req, res) {
   }
 }
 
+// PUT /api/users/:id/change-role
+async function changeRole(req, res) {
+  try {
+    const userId = req.params.id;
+    const { role } = req.body;
+
+    if (!role || (role !== 'USER' && role !== 'ADMIN_CAP_2')) {
+      return res.status(400).json({ success: false, message: 'Vai trò chỉ có thể là CTV (USER) hoặc BCH (ADMIN_CAP_2).' });
+    }
+
+    const targetUser = await db.get('SELECT id, username, role, full_name FROM users WHERE id = ?', [userId]);
+    if (!targetUser) {
+      return res.status(404).json({ success: false, message: 'Không tìm thấy người dùng.' });
+    }
+
+    if (targetUser.role === 'ADMIN_TONG') {
+      return res.status(400).json({ success: false, message: 'Không thể thay đổi vai trò của Admin Tổng.' });
+    }
+
+    await db.run('UPDATE users SET role = ? WHERE id = ?', [role, userId]);
+
+    const roleName = role === 'ADMIN_CAP_2' ? 'BCH (Admin Cấp 2)' : 'CTV (Cộng tác viên)';
+    return res.json({ 
+      success: true, 
+      message: `Đã đổi vai trò của ${targetUser.full_name} (@${targetUser.username}) thành "${roleName}" thành công!` 
+    });
+  } catch (error) {
+    return res.status(500).json({ success: false, message: error.message });
+  }
+}
+
 // DELETE /api/users/:id
 async function deleteUser(req, res) {
   try {
@@ -190,5 +221,6 @@ module.exports = {
   approveUser,
   rejectUser,
   changeDepartment,
+  changeRole,
   deleteUser
 };
