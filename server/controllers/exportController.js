@@ -12,11 +12,11 @@ async function exportExcel(req, res) {
 
     if (currentUser.role === 'ADMIN_CAP_2') {
       targetDeptId = currentUser.department_id;
-      const dept = db.prepare('SELECT code FROM departments WHERE id = ?').get(targetDeptId);
+      const dept = await db.get('SELECT code FROM departments WHERE id = ?', [targetDeptId]);
       fileNameDept = dept ? dept.code : 'Phan-Ban';
     } else if (department_id) {
       targetDeptId = parseInt(department_id);
-      const dept = db.prepare('SELECT code FROM departments WHERE id = ?').get(targetDeptId);
+      const dept = await db.get('SELECT code FROM departments WHERE id = ?', [targetDeptId]);
       fileNameDept = dept ? dept.code : 'Phan-Ban';
     }
 
