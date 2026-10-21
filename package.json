@@ -1,0 +1,27 @@
+{
+  "name": "confirmbump",
+  "version": "1.0.0",
+  "description": "Youth Union Social Media Bump Confirm System",
+  "scripts": {
+    "build": "npm --prefix client install && npm --prefix client run build",
+    "seed": "node --experimental-sqlite server/seed.js",
+    "start": "node server/index.js",
+    "server": "node server/index.js",
+    "client": "npm --prefix client run dev",
+    "dev": "concurrently -n \"SERVER,CLIENT\" -c \"red,blue\" \"node server/index.js\" \"npm --prefix client run dev\""
+  },
+  "dependencies": {
+    "bcryptjs": "^2.4.3",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.7",
+    "exceljs": "^4.4.0",
+    "express": "^4.21.2",
+    "jsonwebtoken": "^9.0.2",
+    "multer": "^1.4.5-lts.1",
+    "nodemailer": "^6.9.16",
+    "pg": "^8.13.3"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.2"
+  }
+}

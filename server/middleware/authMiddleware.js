@@ -1,0 +1,57 @@
+const jwt = require('jsonwebtoken');
+const db = require('../config/db');
+
+const JWT_SECRET = process.env.JWT_SECRET || 'doantruong_secret_bump_key_2026';
+
+async function verifyToken(req, res, next) {
+  const authHeader = req.headers['authorization'];
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    return res.status(401).json({ success: false, message: 'Vui lòng đăng nhập để tiếp tục.' });
+  }
+
+  const token = authHeader.split(' ')[1];
+  try {
+    const decoded = jwt.verify(token, JWT_SECRET);
+    const user = await db.get(`
+      SELECT u.id, u.username, u.full_name, u.email, u.facebook_url, u.role, u.department_id, u.status,
+             d.name as department_name, d.code as department_code, d.color as department_color
+      FROM users u
+      LEFT JOIN departments d ON u.department_id = d.id
+      WHERE u.id = ?
+    `, [decoded.id]);
+
+    if (!user) {
+      return res.status(401).json({ success: false, message: 'Tài khoản không tồn tại hoặc đã bị xóa.' });
+    }
+
+    if (user.status !== 'ACTIVE') {
+      return res.status(403).json({ success: false, message: 'Tài khoản của bạn chưa được Admin Tổng phê duyệt hoặc đã bị khóa.' });
+    }
+
+    req.user = user;
+    next();
+  } catch (err) {
+    return res.status(401).json({ success: false, message: 'Phiên đăng nhập đã hết hạn hoặc không hợp lệ.' });
+  }
+}
+
+function requireAdminTong(req, res, next) {
+  if (!req.user || req.user.role !== 'ADMIN_TONG') {
+    return res.status(403).json({ success: false, message: 'Chỉ Admin Tổng mới có quyền thực hiện thao tác này.' });
+  }
+  next();
+}
+
+function requireAdmin(req, res, next) {
+  if (!req.user || (req.user.role !== 'ADMIN_TONG' && req.user.role !== 'ADMIN_CAP_2')) {
+    return res.status(403).json({ success: false, message: 'Bạn không có quyền quản trị.' });
+  }
+  next();
+}
+
+module.exports = {
+  JWT_SECRET,
+  verifyToken,
+  requireAdminTong,
+  requireAdmin
+};

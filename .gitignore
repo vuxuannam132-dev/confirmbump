@@ -1,0 +1,12 @@
+node_modules
+client/node_modules
+server/node_modules
+.env
+.env.local
+server/uploads/*
+!server/uploads/.gitkeep
+!server/uploads/sample-confirm.png
+*.sqlite
+*.sqlite-journal
+client/dist
+.DS_Store
