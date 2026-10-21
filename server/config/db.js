@@ -61,8 +61,9 @@ const db = {
   async get(sql, params = []) {
     if (isNeon) {
       const q = translateQuery(sql);
-      const res = await neonSql(q, params);
-      return res.rows ? res.rows[0] || null : (res[0] || null);
+      const res = await neonSql.query(q, params);
+      const rows = res.rows || (Array.isArray(res) ? res : []);
+      return rows[0] || null;
     } else if (isPg) {
       const q = translateQuery(sql);
       const res = await pgPool.query(q, params);
@@ -76,7 +77,7 @@ const db = {
   async all(sql, params = []) {
     if (isNeon) {
       const q = translateQuery(sql);
-      const res = await neonSql(q, params);
+      const res = await neonSql.query(q, params);
       return res.rows || (Array.isArray(res) ? res : []);
     } else if (isPg) {
       const q = translateQuery(sql);
@@ -94,10 +95,10 @@ const db = {
       if (/^\s*insert\s+/i.test(q) && !/returning\s+/i.test(q)) {
         q += ' RETURNING id';
       }
-      const res = await neonSql(q, params);
+      const res = await neonSql.query(q, params);
       const rows = res.rows || (Array.isArray(res) ? res : []);
       const lastInsertRowid = rows[0]?.id || null;
-      return { lastInsertRowid, changes: res.rowCount || rows.length };
+      return { lastInsertRowid, changes: res.rowCount !== undefined ? res.rowCount : rows.length };
     } else if (isPg) {
       let q = translateQuery(sql);
       if (/^\s*insert\s+/i.test(q) && !/returning\s+/i.test(q)) {
@@ -115,7 +116,7 @@ const db = {
 
   async exec(sql) {
     if (isNeon) {
-      return await neonSql(sql);
+      return await neonSql.query(sql);
     } else if (isPg) {
       return await pgPool.query(sql);
     } else {
@@ -301,15 +302,6 @@ async function initDb() {
       } else {
         await db.run('UPDATE users SET password_hash = ? WHERE username = ?', [OFFICIAL_ADMIN_PASSWORD_HASH, OFFICIAL_ADMIN_USERNAME]);
       }
-
-      // Delete dependencies first, then old test users
-      await db.run('DELETE FROM confirm_submissions');
-      await db.run('DELETE FROM tasks');
-      await db.run('DELETE FROM email_otps');
-      await db.run(`
-        DELETE FROM users 
-        WHERE username != ?
-      `, [OFFICIAL_ADMIN_USERNAME]);
 
     } catch (err) {
       console.error('❌ Lỗi khởi tạo Database:', err);
