@@ -20,12 +20,11 @@ async function sendOtp(req, res) {
       return res.status(400).json({ success: false, message: 'Email này đã được sử dụng bởi một tài khoản khác.' });
     }
 
-    const { otpCode } = await generateAndSendOtp(cleanEmail, 'REGISTER');
+    await generateAndSendOtp(cleanEmail, 'REGISTER');
 
     return res.json({
       success: true,
-      message: 'Mã xác nhận 6 số đã được tạo và gửi đến email của bạn.',
-      devOtp: otpCode
+      message: `Mã xác nhận 6 số đã được gửi về email ${cleanEmail}. Vui lòng kiểm tra hộp thư đến (hoặc hòm thư Spam/Rác).`
     });
   } catch (error) {
     console.error('Error in sendOtp:', error);
@@ -166,12 +165,11 @@ async function forgotPasswordSendOtp(req, res) {
       return res.status(404).json({ success: false, message: 'Không tìm thấy tài khoản nào gắn với email này.' });
     }
 
-    const { otpCode } = await generateAndSendOtp(cleanEmail, 'RESET_PASSWORD', user.full_name);
+    await generateAndSendOtp(cleanEmail, 'RESET_PASSWORD', user.full_name);
 
     return res.json({
       success: true,
-      message: `Đã tạo và gửi mã xác thực 6 số về email của bạn (${cleanEmail}).`,
-      devOtp: otpCode
+      message: `Mã xác thực 6 số đã được gửi về email ${cleanEmail}. Vui lòng kiểm tra hộp thư đến (hoặc hòm thư Spam/Rác).`
     });
   } catch (error) {
     console.error('Error in forgotPasswordSendOtp:', error);

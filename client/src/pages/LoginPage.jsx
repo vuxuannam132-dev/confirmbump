@@ -22,7 +22,6 @@ export default function LoginPage({ onNavigateRegister }) {
   const [sendingForgotOtp, setSendingForgotOtp] = useState(false);
   const [forgotOtpSent, setForgotOtpSent] = useState(false);
   const [forgotCountdown, setForgotCountdown] = useState(0);
-  const [forgotDevOtp, setForgotDevOtp] = useState(null);
   const [forgotSuccess, setForgotSuccess] = useState(null);
   const [forgotLoading, setForgotLoading] = useState(false);
   const [forgotError, setForgotError] = useState('');
@@ -68,17 +67,12 @@ export default function LoginPage({ onNavigateRegister }) {
 
     setSendingForgotOtp(true);
     setForgotError('');
-    setForgotDevOtp(null);
 
     try {
       const res = await api.post('/auth/forgot-password/send-otp', { email: forgotEmail });
       if (res.data.success) {
         setForgotOtpSent(true);
         setForgotCountdown(60);
-        if (res.data.devOtp) {
-          setForgotDevOtp(res.data.devOtp);
-          setForgotOtp(res.data.devOtp); // Auto-fill on test/localhost
-        }
       }
     } catch (err) {
       setForgotError(err.response?.data?.message || 'Lỗi gửi mã xác nhận.');
@@ -254,13 +248,10 @@ export default function LoginPage({ onNavigateRegister }) {
                 </div>
               )}
 
-              {forgotDevOtp && (
-                <div className="p-2.5 bg-emerald-50 text-emerald-900 text-xs rounded-xl border border-emerald-300 flex items-center justify-between">
-                  <div className="flex items-center space-x-1.5">
-                    <Sparkles className="w-3.5 h-3.5 text-emerald-600" />
-                    <span>Mã OTP: <b className="font-mono text-emerald-700 tracking-wider">{forgotDevOtp}</b></span>
-                  </div>
-                  <span className="text-[10px] bg-emerald-200 text-emerald-800 px-2 py-0.5 rounded-full font-bold">Đã tự điền</span>
+              {forgotOtpSent && (
+                <div className="p-3 bg-blue-50 text-blue-900 text-xs rounded-xl border border-blue-200 flex items-start space-x-2">
+                  <CheckCircle2 className="w-4 h-4 text-blue-600 flex-shrink-0 mt-0.5" />
+                  <span>Mã xác thực gồm 6 số đã được gửi đến email <b>{forgotEmail}</b>. Vui lòng kiểm tra hộp thư đến (hoặc hòm thư Spam) để lấy mã và nhập vào bên dưới.</span>
                 </div>
               )}
 

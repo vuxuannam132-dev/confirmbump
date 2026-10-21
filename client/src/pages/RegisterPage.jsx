@@ -20,7 +20,6 @@ export default function RegisterPage({ onNavigateLogin }) {
   const [sendingOtp, setSendingOtp] = useState(false);
   const [otpSent, setOtpSent] = useState(false);
   const [otpCountdown, setOtpCountdown] = useState(0);
-  const [devOtpHint, setDevOtpHint] = useState(null);
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -57,17 +56,12 @@ export default function RegisterPage({ onNavigateLogin }) {
 
     setSendingOtp(true);
     setError('');
-    setDevOtpHint(null);
 
     try {
       const res = await api.post('/auth/send-otp', { email });
       if (res.data.success) {
         setOtpSent(true);
         setOtpCountdown(60);
-        if (res.data.devOtp) {
-          setDevOtpHint(res.data.devOtp);
-          setOtpCode(res.data.devOtp); // Auto-fill for ultra smooth testing on localhost!
-        }
       }
     } catch (err) {
       setError(err.response?.data?.message || 'Không thể gửi mã xác nhận.');
@@ -173,14 +167,11 @@ export default function RegisterPage({ onNavigateLogin }) {
               </div>
             )}
 
-            {/* Dev OTP Hint */}
-            {devOtpHint && (
-              <div className="p-3 bg-emerald-50 text-emerald-900 text-xs rounded-xl border border-emerald-300 flex items-center justify-between">
-                <div className="flex items-center space-x-1.5">
-                  <Sparkles className="w-4 h-4 text-emerald-600 flex-shrink-0" />
-                  <span>Mã OTP Localhost: <b className="text-sm font-mono tracking-widest text-emerald-700">{devOtpHint}</b></span>
-                </div>
-                <span className="text-[10px] bg-emerald-200 px-2 py-0.5 rounded-full font-bold text-emerald-800">Đã tự điền</span>
+            {/* OTP Sent Notice */}
+            {otpSent && (
+              <div className="p-3 bg-blue-50 text-blue-900 text-xs rounded-xl border border-blue-200 flex items-start space-x-2">
+                <CheckCircle2 className="w-4 h-4 text-blue-600 flex-shrink-0 mt-0.5" />
+                <span>Mã xác minh gồm 6 số đã được gửi đến hộp thư <b>{email}</b>. Vui lòng mở email (kiểm tra cả mục Spam/Thư rác) để lấy mã và nhập vào ô bên dưới.</span>
               </div>
             )}
 
