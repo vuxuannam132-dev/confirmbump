@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
 import api from '../services/api';
@@ -18,7 +18,14 @@ import {
   CheckCircle2, 
   AlertTriangle,
   ExternalLink,
-  KeyRound
+  KeyRound,
+  Cloud,
+  Database,
+  UploadCloud,
+  Check,
+  Copy,
+  RefreshCw,
+  Server
 } from 'lucide-react';
 
 export default function SettingsPage() {
@@ -41,6 +48,41 @@ export default function SettingsPage() {
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [deleteLoading, setDeleteLoading] = useState(false);
   const [deleteError, setDeleteError] = useState('');
+
+  // ImgBB Cloud storage states (Only Admin Tổng)
+  const [storageInfo, setStorageInfo] = useState(null);
+  const [storageLoading, setStorageLoading] = useState(false);
+  const [testLoading, setTestLoading] = useState(false);
+  const [copiedKey, setCopiedKey] = useState(false);
+
+  useEffect(() => {
+    if (user?.role === 'ADMIN_TONG') {
+      fetchStorageStatus();
+    }
+  }, [user]);
+
+  const fetchStorageStatus = async (runTest = false) => {
+    try {
+      if (runTest) setTestLoading(true);
+      else setStorageLoading(true);
+
+      const res = await api.get(`/confirms/storage-status${runTest ? '?test=true' : ''}`);
+      if (res.data.success) {
+        setStorageInfo(res.data);
+      }
+    } catch (err) {
+      console.warn('Error fetching storage status:', err);
+    } finally {
+      setStorageLoading(false);
+      setTestLoading(false);
+    }
+  };
+
+  const handleCopyVar = () => {
+    navigator.clipboard.writeText('IMGBB_API_KEY');
+    setCopiedKey(true);
+    setTimeout(() => setCopiedKey(false), 2000);
+  };
 
   const roleText = user?.role === 'ADMIN_TONG' 
     ? 'BCH (Admin Tổng)' 
@@ -390,7 +432,163 @@ export default function SettingsPage() {
         </div>
       </div>
 
-      {/* 4. Vùng nguy hiểm (Danger Zone - Xóa tài khoản) */}
+      {/* 4. Quản lý Lưu Trữ Đám Mây ImgBB (Dành riêng cho Admin Tổng) */}
+      {user?.role === 'ADMIN_TONG' && (
+        <div className="bg-white dark:bg-slate-900 rounded-3xl p-4 sm:p-6 border border-slate-200/80 dark:border-slate-800 shadow-xs space-y-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center space-x-2.5">
+              <div className="w-9 h-9 rounded-xl bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400 flex items-center justify-center">
+                <Cloud className="w-5 h-5" />
+              </div>
+              <div>
+                <h2 className="text-sm sm:text-base font-black text-slate-900 dark:text-white">
+                  Kho Lưu Trữ Ảnh Đám Mây (ImgBB Cloud)
+                </h2>
+                <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                  Lưu trữ vĩnh viễn không giới hạn dung lượng, giải phóng bộ nhớ Database
+                </p>
+              </div>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => fetchStorageStatus(false)}
+              disabled={storageLoading}
+              className="p-2 rounded-xl text-slate-500 hover:text-slate-800 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+              title="Làm mới trạng thái"
+            >
+              <RefreshCw className={`w-4 h-4 ${storageLoading ? 'animate-spin text-blue-600' : ''}`} />
+            </button>
+          </div>
+
+          {/* Current Status Box */}
+          <div className={`p-4 rounded-2xl border ${
+            storageInfo?.hasKey 
+              ? 'bg-emerald-50/70 dark:bg-emerald-950/30 border-emerald-200 dark:border-emerald-800' 
+              : 'bg-amber-50/70 dark:bg-amber-950/30 border-amber-200 dark:border-amber-800'
+          }`}>
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div>
+                <div className="flex items-center space-x-2">
+                  <span className={`inline-block w-2.5 h-2.5 rounded-full ${storageInfo?.hasKey ? 'bg-emerald-500 animate-pulse' : 'bg-amber-500'}`} />
+                  <span className={`text-xs font-black uppercase ${storageInfo?.hasKey ? 'text-emerald-900 dark:text-emerald-200' : 'text-amber-900 dark:text-amber-200'}`}>
+                    {storageInfo?.hasKey ? 'ImgBB Cloud Đang Hoạt Động' : 'Chưa Cấu Hình ImgBB API Key'}
+                  </span>
+                </div>
+                <p className="text-xs text-slate-700 dark:text-slate-300 mt-1">
+                  Phương thức lưu trữ: <span className="font-bold">{storageInfo?.storageType || 'Đang kiểm tra...'}</span>
+                  {storageInfo?.keyMasked && (
+                    <span className="ml-2 font-mono text-[11px] bg-white/70 dark:bg-slate-800 px-2 py-0.5 rounded border border-emerald-300 dark:border-emerald-700">
+                      Key: {storageInfo.keyMasked}
+                    </span>
+                  )}
+                </p>
+              </div>
+
+              {storageInfo?.hasKey && (
+                <button
+                  type="button"
+                  onClick={() => fetchStorageStatus(true)}
+                  disabled={testLoading}
+                  className="px-3.5 py-1.5 rounded-xl text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 shadow-sm transition-all active:scale-95 disabled:opacity-50 flex items-center justify-center flex-shrink-0"
+                >
+                  <RefreshCw className={`w-3.5 h-3.5 mr-1.5 ${testLoading ? 'animate-spin' : ''}`} />
+                  {testLoading ? 'Đang test...' : 'Kiểm Tra Kết Nối'}
+                </button>
+              )}
+            </div>
+
+            {/* Test Result Message */}
+            {storageInfo?.testResult && (
+              <div className={`mt-3 p-2.5 rounded-xl text-xs font-semibold border ${
+                storageInfo.testResult.ok 
+                  ? 'bg-white dark:bg-slate-900 text-emerald-700 dark:text-emerald-300 border-emerald-300 dark:border-emerald-700' 
+                  : 'bg-white dark:bg-slate-900 text-red-700 dark:text-red-300 border-red-300 dark:border-red-700'
+              }`}>
+                {storageInfo.testResult.ok ? '✅ ' : '❌ '}
+                {storageInfo.testResult.message}
+                {storageInfo.testResult.sampleUrl && (
+                  <a 
+                    href={storageInfo.testResult.sampleUrl} 
+                    target="_blank" 
+                    rel="noopener noreferrer"
+                    className="ml-2 text-blue-600 hover:underline inline-flex items-center"
+                  >
+                    Xem ảnh test ↗
+                  </a>
+                )}
+              </div>
+            )}
+          </div>
+
+          {/* Setup Guide for Admin */}
+          <div className="bg-slate-50 dark:bg-slate-800/40 rounded-2xl p-4 border border-slate-200/80 dark:border-slate-700/80 space-y-3">
+            <h3 className="text-xs font-bold uppercase text-slate-700 dark:text-slate-300 flex items-center">
+              <UploadCloud className="w-4 h-4 mr-1.5 text-blue-600" />
+              Hướng dẫn 3 bước kết nối ImgBB (Miễn phí 100%):
+            </h3>
+
+            <div className="space-y-2 text-xs text-slate-600 dark:text-slate-300">
+              <div className="flex items-start space-x-2">
+                <span className="w-5 h-5 rounded-full bg-blue-100 dark:bg-blue-900/60 text-blue-700 dark:text-blue-300 font-bold flex items-center justify-center flex-shrink-0 text-[11px] mt-0.5">
+                  1
+                </span>
+                <p>
+                  Truy cập trang API của ImgBB tại{' '}
+                  <a 
+                    href="https://api.imgbb.com/" 
+                    target="_blank" 
+                    rel="noopener noreferrer"
+                    className="text-blue-600 dark:text-blue-400 font-bold hover:underline inline-flex items-center"
+                  >
+                    api.imgbb.com <ExternalLink className="w-3 h-3 ml-0.5" />
+                  </a>{' '}
+                  và bấm nút <b>"Get API Key"</b> (Đăng ký tài khoản miễn phí mất 30 giây).
+                </p>
+              </div>
+
+              <div className="flex items-start space-x-2">
+                <span className="w-5 h-5 rounded-full bg-blue-100 dark:bg-blue-900/60 text-blue-700 dark:text-blue-300 font-bold flex items-center justify-center flex-shrink-0 text-[11px] mt-0.5">
+                  2
+                </span>
+                <p>
+                  Sao chép chuỗi mã <b>API Key</b> (dạng chuỗi ký tự 32 chữ và số).
+                </p>
+              </div>
+
+              <div className="flex items-start space-x-2">
+                <span className="w-5 h-5 rounded-full bg-blue-100 dark:bg-blue-900/60 text-blue-700 dark:text-blue-300 font-bold flex items-center justify-center flex-shrink-0 text-[11px] mt-0.5">
+                  3
+                </span>
+                <div className="space-y-1.5 flex-1">
+                  <p>
+                    Vào <b>Vercel Dashboard</b> &gt; Dự án <b>confirmbump</b> &gt; <b>Settings</b> &gt; <b>Environment Variables</b>:
+                  </p>
+                  <div className="flex items-center space-x-2 bg-white dark:bg-slate-900 p-2 rounded-xl border border-slate-200 dark:border-slate-700">
+                    <span className="text-[11px] font-bold text-slate-500">Tên biến (Key):</span>
+                    <code className="text-xs font-bold text-blue-600 dark:text-blue-400 font-mono bg-blue-50 dark:bg-blue-950 px-2 py-0.5 rounded">
+                      IMGBB_API_KEY
+                    </code>
+                    <button
+                      type="button"
+                      onClick={handleCopyVar}
+                      className="ml-auto text-[11px] font-bold text-slate-600 dark:text-slate-300 hover:text-blue-600 flex items-center bg-slate-100 dark:bg-slate-800 px-2 py-1 rounded-lg"
+                    >
+                      {copiedKey ? <Check className="w-3.5 h-3.5 text-green-600 mr-1" /> : <Copy className="w-3.5 h-3.5 mr-1" />}
+                      {copiedKey ? 'Đã copy' : 'Copy tên biến'}
+                    </button>
+                  </div>
+                  <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                    Dán API Key vào ô <b>Value</b> &gt; Bấm <b>Save</b> &gt; Vào tab <b>Deployments</b> bấm <b>Redeploy</b> là hoàn tất!
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 5. Vùng nguy hiểm (Danger Zone - Xóa tài khoản) */}
       <div className="bg-red-50/50 dark:bg-red-950/20 rounded-3xl p-4 sm:p-6 border border-red-200 dark:border-red-900/50 shadow-xs space-y-3">
         <div className="flex items-center space-x-2">
           <Trash2 className="w-5 h-5 text-red-600 dark:text-red-400" />

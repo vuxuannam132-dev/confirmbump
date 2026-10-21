@@ -21,5 +21,6 @@ router.get('/progress', verifyToken, requireAdmin, confirmController.getProgress
 // Review queue & approve/reject: ONLY Admin Tổng
 router.get('/review-queue', verifyToken, requireAdminTong, confirmController.getReviewQueue);
 router.put('/:id/review', verifyToken, requireAdminTong, confirmController.reviewConfirm);
+router.get('/storage-status', verifyToken, requireAdminTong, confirmController.getStorageStatus);
 
 module.exports = router;

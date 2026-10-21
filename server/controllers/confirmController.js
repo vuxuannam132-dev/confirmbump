@@ -356,11 +356,66 @@ async function getProgress(req, res) {
   }
 }
 
+// GET /api/confirms/storage-status (Only Admin Tổng)
+async function getStorageStatus(req, res) {
+  try {
+    const rawKey = process.env.IMGBB_API_KEY ? process.env.IMGBB_API_KEY.trim() : '';
+    const hasKey = rawKey.length > 0;
+    const isVercel = Boolean(process.env.VERCEL);
+
+    let testResult = null;
+    if (hasKey && req.query.test === 'true') {
+      try {
+        const sampleBase64 = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=';
+        const formData = new URLSearchParams();
+        formData.append('image', sampleBase64);
+
+        const response = await fetch(`https://api.imgbb.com/1/upload?key=${rawKey}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+          body: formData.toString()
+        });
+
+        const resData = await response.json();
+        if (resData.success && resData.data && (resData.data.url || resData.data.display_url)) {
+          testResult = {
+            ok: true,
+            message: 'Kết nối ImgBB API hoạt động hoàn hảo!',
+            sampleUrl: resData.data.url || resData.data.display_url
+          };
+        } else {
+          testResult = {
+            ok: false,
+            message: resData.error?.message || 'ImgBB phản hồi lỗi hoặc API Key không hợp lệ.'
+          };
+        }
+      } catch (tErr) {
+        testResult = {
+          ok: false,
+          message: 'Không thể kết nối đến máy chủ ImgBB: ' + tErr.message
+        };
+      }
+    }
+
+    return res.json({
+      success: true,
+      hasKey,
+      keyMasked: hasKey ? `${rawKey.slice(0, 4)}••••${rawKey.slice(-4)}` : null,
+      environment: isVercel ? 'Vercel Serverless' : 'Local Node.js',
+      storageType: hasKey ? 'ImgBB Cloud (Lưu trữ ảnh vô hạn)' : (isVercel ? 'PostgreSQL Base64 Fallback' : 'Ổ đĩa cục bộ (/uploads)'),
+      testResult
+    });
+  } catch (err) {
+    return res.status(500).json({ success: false, message: err.message });
+  }
+}
+
 module.exports = {
   formatSubmission,
   submitConfirm,
   getReviewQueue,
   reviewConfirm,
   getMyHistory,
-  getProgress
+  getProgress,
+  getStorageStatus
 };
