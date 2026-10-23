@@ -410,6 +410,111 @@ async function getStorageStatus(req, res) {
   }
 }
 
+// GET /api/confirms/unconfirmed
+// Accessible by Admin Tổng, Admin Cấp 2, Người kiểm duyệt
+async function getUnconfirmed(req, res) {
+  try {
+    const currentUser = req.user;
+    const { task_id, department_id, search } = req.query;
+
+    let targetDeptId = null;
+    if (currentUser.role === 'ADMIN_CAP_2') {
+      targetDeptId = currentUser.department_id;
+    } else if (department_id) {
+      targetDeptId = parseInt(department_id);
+    }
+
+    // 1. Fetch active tasks
+    let taskQuery = 'SELECT * FROM tasks WHERE 1=1';
+    const taskParams = [];
+    if (task_id && task_id !== 'ALL') {
+      taskQuery += ' AND id = ?';
+      taskParams.push(parseInt(task_id));
+    }
+    taskQuery += ' ORDER BY created_at DESC';
+    const tasks = await db.all(taskQuery, taskParams);
+
+    // 2. Fetch active users (only users who need to do tasks: USER, ADMIN_CAP_2, KIEM_DUYET)
+    let userQuery = `
+      SELECT u.id, u.username, u.full_name, u.email, u.facebook_url, u.phone, u.role, u.department_id,
+             d.name as department_name, d.code as department_code, d.color as department_color
+      FROM users u
+      LEFT JOIN departments d ON u.department_id = d.id
+      WHERE u.status = 'ACTIVE' AND u.role != 'ADMIN_TONG'
+    `;
+    const userParams = [];
+    if (targetDeptId) {
+      userQuery += ' AND u.department_id = ?';
+      userParams.push(targetDeptId);
+    }
+    if (search && search.trim() !== '') {
+      userQuery += ' AND (LOWER(u.full_name) LIKE ? OR LOWER(u.username) LIKE ?)';
+      const s = `%${search.trim().toLowerCase()}%`;
+      userParams.push(s, s);
+    }
+    userQuery += ' ORDER BY u.department_id ASC, u.full_name ASC';
+    const users = await db.all(userQuery, userParams);
+
+    // 3. Find unconfirmed users for these tasks
+    const now = new Date();
+    const unconfirmedList = [];
+
+    for (const task of tasks) {
+      // Find users applicable for this task
+      const applicableUsers = users.filter(u => !task.target_department_id || task.target_department_id === u.department_id);
+      
+      const deadline = new Date(task.deadline);
+      const makeupDeadline = new Date(task.makeup_deadline);
+
+      let taskStatus = 'ON_TIME'; // Đang trong hạn chót
+      if (now > makeupDeadline) {
+        taskStatus = 'OVERDUE_CLOSED'; // Đã quá hạn khóa nộp
+      } else if (now > deadline) {
+        taskStatus = 'MAKEUP_PERIOD'; // Đang trong 3 ngày nộp bù
+      }
+
+      // Get all approved or pending submissions for this task
+      const taskSubs = await db.all(
+        'SELECT id, user_id, status FROM confirm_submissions WHERE task_id = ?',
+        [task.id]
+      );
+      const submittedMap = new Map();
+      taskSubs.forEach(s => submittedMap.set(s.user_id, s.status));
+
+      for (const u of applicableUsers) {
+        const subStatus = submittedMap.get(u.id);
+        // If not submitted or rejected, user is unconfirmed!
+        if (!subStatus || subStatus === 'REJECTED') {
+          unconfirmedList.push({
+            user: u,
+            task: {
+              id: task.id,
+              title: task.title,
+              platform: task.platform,
+              post_url: task.post_url,
+              deadline: task.deadline,
+              makeup_deadline: task.makeup_deadline
+            },
+            status: subStatus === 'REJECTED' ? 'REJECTED' : 'NOT_SUBMITTED',
+            taskStatus,
+            deadline: task.deadline,
+            makeupDeadline: task.makeup_deadline
+          });
+        }
+      }
+    }
+
+    return res.json({
+      success: true,
+      totalUnconfirmed: unconfirmedList.length,
+      unconfirmed: unconfirmedList
+    });
+  } catch (error) {
+    console.error('Error in getUnconfirmed:', error);
+    return res.status(500).json({ success: false, message: error.message });
+  }
+}
+
 module.exports = {
   formatSubmission,
   submitConfirm,
@@ -417,5 +522,6 @@ module.exports = {
   reviewConfirm,
   getMyHistory,
   getProgress,
-  getStorageStatus
+  getStorageStatus,
+  getUnconfirmed
 };

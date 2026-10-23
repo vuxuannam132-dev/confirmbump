@@ -35,6 +35,7 @@ async function verifyToken(req, res, next) {
   }
 }
 
+// Only Admin Tổng (Super Admin)
 function requireAdminTong(req, res, next) {
   if (!req.user || req.user.role !== 'ADMIN_TONG') {
     return res.status(403).json({ success: false, message: 'Chỉ Admin Tổng mới có quyền thực hiện thao tác này.' });
@@ -42,8 +43,25 @@ function requireAdminTong(req, res, next) {
   next();
 }
 
+// Can review confirms (Admin Tổng & Người kiểm duyệt)
+function requireCanReview(req, res, next) {
+  if (!req.user || (req.user.role !== 'ADMIN_TONG' && req.user.role !== 'KIEM_DUYET' && req.user.role !== 'MODERATOR')) {
+    return res.status(403).json({ success: false, message: 'Chỉ Admin Tổng và Người kiểm duyệt mới có quyền duyệt confirm.' });
+  }
+  next();
+}
+
+// Can track progress / view unconfirmed / export excel (Admin Tổng, Admin Cấp 2, Người kiểm duyệt)
+function requireCanTrackProgress(req, res, next) {
+  if (!req.user || (req.user.role !== 'ADMIN_TONG' && req.user.role !== 'ADMIN_CAP_2' && req.user.role !== 'KIEM_DUYET' && req.user.role !== 'MODERATOR')) {
+    return res.status(403).json({ success: false, message: 'Bạn không có quyền truy cập tiến độ.' });
+  }
+  next();
+}
+
+// General admin (includes Admin Tổng, Admin Cấp 2, Người kiểm duyệt)
 function requireAdmin(req, res, next) {
-  if (!req.user || (req.user.role !== 'ADMIN_TONG' && req.user.role !== 'ADMIN_CAP_2')) {
+  if (!req.user || (req.user.role !== 'ADMIN_TONG' && req.user.role !== 'ADMIN_CAP_2' && req.user.role !== 'KIEM_DUYET' && req.user.role !== 'MODERATOR')) {
     return res.status(403).json({ success: false, message: 'Bạn không có quyền quản trị.' });
   }
   next();
@@ -53,5 +71,7 @@ module.exports = {
   JWT_SECRET,
   verifyToken,
   requireAdminTong,
+  requireCanReview,
+  requireCanTrackProgress,
   requireAdmin
 };

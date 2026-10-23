@@ -23,31 +23,41 @@ import {
 } from 'lucide-react';
 
 export default function Sidebar({ activeTab, setActiveTab, onOpenInstallAppModal }) {
-  const { user, logout, isAdminTong, isAdminCap2 } = useAuth();
+  const { user, logout, isAdminTong, isAdminCap2, isReviewer, canReview, canTrackProgress } = useAuth();
   const { theme, setTheme } = useTheme();
   const [mobileDrawerOpen, setMobileDrawerOpen] = useState(false);
 
   if (!user) return null;
 
-  // Role display logic: "CTV" for user, "BCH" for admins
+  // Role display logic: "CTV" for user, "Người kiểm duyệt" for reviewer, "BCH" for admins
   const roleText = isAdminTong 
     ? 'BCH (Admin Tổng)' 
-    : (isAdminCap2 ? 'BCH' : 'CTV');
+    : (isAdminCap2 
+        ? 'BCH' 
+        : (isReviewer ? 'Người kiểm duyệt' : 'CTV'));
 
   const roleBadgeStyle = isAdminTong
     ? 'bg-red-600 text-white shadow-xs'
-    : (isAdminCap2 ? 'bg-blue-600 text-white shadow-xs' : 'bg-slate-700 dark:bg-slate-700 text-white');
+    : (isAdminCap2 
+        ? 'bg-blue-600 text-white shadow-xs' 
+        : (isReviewer ? 'bg-teal-600 text-white shadow-xs' : 'bg-slate-700 dark:bg-slate-700 text-white'));
 
   const navItems = [
     { id: 'tasks', label: 'Nhiệm Vụ', icon: CheckSquare, show: true },
     { id: 'history', label: 'Lịch Sử Cá Nhân', icon: ListOrdered, show: true },
     { 
       id: 'progress', 
-      label: isAdminTong ? 'Tiến Độ Toàn Đoàn' : `Tiến Độ ${user.department_name || 'Ban'}`, 
+      label: (isAdminTong || isReviewer) ? 'Tiến Độ Toàn Đoàn' : `Tiến Độ ${user.department_name || 'Ban'}`, 
       icon: BarChart3, 
-      show: isAdminCap2 || isAdminTong 
+      show: canTrackProgress 
     },
-    { id: 'review', label: 'Duyệt Confirm', icon: ShieldCheck, show: isAdminTong, badge: 'Admin' },
+    { 
+      id: 'review', 
+      label: 'Duyệt Confirm', 
+      icon: ShieldCheck, 
+      show: canReview, 
+      badge: isReviewer ? 'Kiểm Duyệt' : 'Admin' 
+    },
     { id: 'admin-tasks', label: 'Quản Lý Task', icon: PlusCircle, show: isAdminTong },
     { id: 'users', label: 'Thành Viên', icon: Users, show: isAdminTong || isAdminCap2 },
     { id: 'settings', label: 'Cài Đặt', icon: Settings, show: true },

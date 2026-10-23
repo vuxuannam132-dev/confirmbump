@@ -41,7 +41,7 @@ export default function PersonalHistoryPage() {
 
   const roleText = user.role === 'ADMIN_TONG' 
     ? 'BCH (Admin Tổng)' 
-    : (user.role === 'ADMIN_CAP_2' ? 'BCH' : 'CTV');
+    : (user.role === 'ADMIN_CAP_2' ? 'BCH' : (user.role === 'KIEM_DUYET' ? 'Người kiểm duyệt' : 'CTV'));
 
   const approvedCount = history.filter(h => h.status === 'APPROVED').length;
   const pendingCount = history.filter(h => h.status === 'PENDING').length;

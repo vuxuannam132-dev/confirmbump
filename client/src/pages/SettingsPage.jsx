@@ -86,7 +86,7 @@ export default function SettingsPage() {
 
   const roleText = user?.role === 'ADMIN_TONG' 
     ? 'BCH (Admin Tổng)' 
-    : (user?.role === 'ADMIN_CAP_2' ? 'BCH' : 'CTV');
+    : (user?.role === 'ADMIN_CAP_2' ? 'BCH' : (user?.role === 'KIEM_DUYET' ? 'Người kiểm duyệt' : 'CTV'));
 
   const handleChangePassword = async (e) => {
     e.preventDefault();

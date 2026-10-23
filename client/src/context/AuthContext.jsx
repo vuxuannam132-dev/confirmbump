@@ -76,7 +76,10 @@ export function AuthProvider({ children }) {
 
   const isAdminTong = user?.role === 'ADMIN_TONG';
   const isAdminCap2 = user?.role === 'ADMIN_CAP_2';
-  const isAnyAdmin = isAdminTong || isAdminCap2;
+  const isReviewer = user?.role === 'KIEM_DUYET' || user?.role === 'MODERATOR';
+  const canReview = isAdminTong || isReviewer;
+  const canTrackProgress = isAdminTong || isAdminCap2 || isReviewer;
+  const isAnyAdmin = isAdminTong || isAdminCap2 || isReviewer;
 
   const value = {
     user,
@@ -89,6 +92,9 @@ export function AuthProvider({ children }) {
     deleteMyAccount,
     isAdminTong,
     isAdminCap2,
+    isReviewer,
+    canReview,
+    canTrackProgress,
     isAnyAdmin
   };
 
