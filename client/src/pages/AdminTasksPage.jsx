@@ -13,11 +13,7 @@ import {
   CheckCircle2, 
   Loader2,
   Sparkles,
-  Eye,
-  Megaphone,
-  Send,
-  Bell,
-  X
+  Eye
 } from 'lucide-react';
 
 const STANDARD_BUMP_TEMPLATE = `📢 [YÊU CẦU BUMP BÀI TIÊU CHUẨN]
@@ -54,12 +50,6 @@ export default function AdminTasksPage() {
   const [targetDeptId, setTargetDeptId] = useState(''); // '' means Toàn đoàn
   const [deadline, setDeadline] = useState('');
 
-  // Broadcast announcement modal states
-  const [showBroadcastModal, setShowBroadcastModal] = useState(false);
-  const [broadcastTitle, setBroadcastTitle] = useState('');
-  const [broadcastMessage, setBroadcastMessage] = useState('');
-  const [broadcastSubmitting, setBroadcastSubmitting] = useState(false);
-  const [broadcastAlert, setBroadcastAlert] = useState(null);
 
   const loadData = async () => {
     try {
@@ -137,72 +127,17 @@ export default function AdminTasksPage() {
     }
   };
 
-  const handleSendBroadcast = async (e) => {
-    e.preventDefault();
-    if (!broadcastTitle.trim() || !broadcastMessage.trim()) {
-      setBroadcastAlert({ type: 'error', text: 'Vui lòng nhập đầy đủ tiêu đề và nội dung thông báo.' });
-      return;
-    }
-
-    setBroadcastSubmitting(true);
-    setBroadcastAlert(null);
-
-    try {
-      const res = await api.post('/notifications/broadcast', {
-        title: broadcastTitle.trim(),
-        message: broadcastMessage.trim()
-      });
-
-      if (res.data.success) {
-        setBroadcastAlert({
-          type: 'success',
-          text: `🎉 ${res.data.message || 'Đã phát thông báo thành công!'}`
-        });
-        setTimeout(() => {
-          setShowBroadcastModal(false);
-          setBroadcastTitle('');
-          setBroadcastMessage('');
-          setBroadcastAlert(null);
-        }, 2200);
-      }
-    } catch (err) {
-      setBroadcastAlert({
-        type: 'error',
-        text: err.response?.data?.message || 'Lỗi khi gửi thông báo công việc.'
-      });
-    } finally {
-      setBroadcastSubmitting(false);
-    }
-  };
-
-  const applyBroadcastPreset = (titleText, msgText) => {
-    setBroadcastTitle(titleText);
-    setBroadcastMessage(msgText);
-  };
 
   return (
     <div className="space-y-6">
-      {/* Top Banner Action */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white dark:bg-slate-900 p-4 sm:p-6 rounded-3xl border border-slate-200/80 dark:border-slate-800 shadow-xs">
-        <div>
-          <h1 className="text-lg sm:text-xl font-black text-slate-900 dark:text-white">
-            Quản Lý Nhiệm Vụ & Phát Thông Báo
-          </h1>
-          <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-            Tạo task bump bài mới và gửi thông báo đẩy trực tiếp về điện thoại toàn đoàn
-          </p>
-        </div>
-        <button
-          type="button"
-          onClick={() => {
-            setShowBroadcastModal(true);
-            setBroadcastAlert(null);
-          }}
-          className="px-4 py-2.5 rounded-2xl bg-gradient-to-r from-red-600 to-amber-600 hover:from-red-700 hover:to-amber-700 text-white font-extrabold text-xs shadow-md shadow-red-200 dark:shadow-none transition-all flex items-center justify-center space-x-2 active:scale-95 flex-shrink-0"
-        >
-          <Megaphone className="w-4 h-4" />
-          <span>Phát Thông Báo Toàn Hệ Thống</span>
-        </button>
+      {/* Page Header */}
+      <div className="bg-white dark:bg-slate-900 p-4 sm:p-6 rounded-3xl border border-slate-200/80 dark:border-slate-800 shadow-xs">
+        <h1 className="text-lg sm:text-xl font-black text-slate-900 dark:text-white">
+          Quản Lý Nhiệm Vụ
+        </h1>
+        <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+          Tạo task bump bài mới và quản lý nhiệm vụ cho toàn đoàn
+        </p>
       </div>
       {/* Alert toast */}
       {alertMsg && (
@@ -224,6 +159,7 @@ export default function AdminTasksPage() {
           </button>
         </div>
       )}
+
 
       {/* Form Card: Create Task */}
       <div className="bg-white rounded-3xl p-6 sm:p-8 border border-slate-200 shadow-sm">
@@ -465,134 +401,6 @@ export default function AdminTasksPage() {
         isOpen={!!selectedTaskForDetail}
         onClose={() => setSelectedTaskForDetail(null)}
       />
-
-      {/* Broadcast Announcement Modal */}
-      {showBroadcastModal && (
-        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in">
-          <div className="bg-white dark:bg-slate-900 rounded-3xl max-w-lg w-full p-6 shadow-2xl border border-slate-200 dark:border-slate-800 space-y-4">
-            <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
-              <div className="flex items-center space-x-2.5">
-                <div className="w-9 h-9 rounded-xl bg-red-100 dark:bg-red-950/60 text-red-600 dark:text-red-400 flex items-center justify-center">
-                  <Megaphone className="w-5 h-5" />
-                </div>
-                <div>
-                  <h3 className="text-base font-black text-slate-900 dark:text-white">
-                    Phát Thông Báo Công Việc Toàn Đoàn
-                  </h3>
-                  <p className="text-[11px] text-slate-500 dark:text-slate-400">
-                    Gửi thông báo đẩy về điện thoại và chuông thông báo của toàn bộ đoàn viên
-                  </p>
-                </div>
-              </div>
-              <button
-                type="button"
-                onClick={() => setShowBroadcastModal(false)}
-                className="p-1.5 rounded-xl text-slate-400 hover:text-slate-700 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            {/* Quick Templates */}
-            <div>
-              <span className="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase block mb-1.5">
-                Mẫu soạn nhanh:
-              </span>
-              <div className="flex flex-wrap gap-1.5">
-                <button
-                  type="button"
-                  onClick={() => applyBroadcastPreset(
-                    '⏰ Nhắc nhở hạn chót hoàn thành bump bài',
-                    'Đề nghị toàn thể CTV và BCH nhanh chóng vào thực hiện tương tác và nộp ảnh minh chứng trước khi hết hạn!'
-                  )}
-                  className="px-2.5 py-1 rounded-lg text-[11px] font-semibold bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors"
-                >
-                  ⏰ Nhắc hạn chót
-                </button>
-                <button
-                  type="button"
-                  onClick={() => applyBroadcastPreset(
-                    '🔥 Chiến dịch truyền thông mới - Đẩy mạnh tương tác',
-                    'Đoàn trường vừa phát động chiến dịch mới. Đề nghị các phân ban tích cực kêu gọi bạn bè tương tác và chia sẻ.'
-                  )}
-                  className="px-2.5 py-1 rounded-lg text-[11px] font-semibold bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors"
-                >
-                  🔥 Chiến dịch mới
-                </button>
-                <button
-                  type="button"
-                  onClick={() => applyBroadcastPreset(
-                    '📢 Thông báo cuộc họp BCH và CTV Đoàn trường',
-                    'Đề nghị các đồng chí kiểm tra thông tin và có mặt đúng giờ để tham gia buổi họp triển khai công tác.'
-                  )}
-                  className="px-2.5 py-1 rounded-lg text-[11px] font-semibold bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors"
-                >
-                  📢 Họp triển khai
-                </button>
-              </div>
-            </div>
-
-            {/* Alert in modal */}
-            {broadcastAlert && (
-              <div className={`p-3 rounded-xl text-xs font-bold border ${
-                broadcastAlert.type === 'success' 
-                  ? 'bg-emerald-50 text-emerald-800 border-emerald-200 dark:bg-emerald-950/50 dark:text-emerald-300' 
-                  : 'bg-red-50 text-red-800 border-red-200 dark:bg-red-950/50 dark:text-red-300'
-              }`}>
-                {broadcastAlert.text}
-              </div>
-            )}
-
-            <form onSubmit={handleSendBroadcast} className="space-y-3.5">
-              <div>
-                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase mb-1">
-                  Tiêu đề thông báo <span className="text-red-500">*</span>
-                </label>
-                <input
-                  type="text"
-                  required
-                  value={broadcastTitle}
-                  onChange={(e) => setBroadcastTitle(e.target.value)}
-                  placeholder="VD: [KHẨN] Nhắc nhở hạn chót hoàn thành bump bài 20/10"
-                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 text-xs bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white focus:ring-2 focus:ring-red-500 focus:outline-none"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase mb-1">
-                  Nội dung thông báo <span className="text-red-500">*</span>
-                </label>
-                <textarea
-                  required
-                  rows={4}
-                  value={broadcastMessage}
-                  onChange={(e) => setBroadcastMessage(e.target.value)}
-                  placeholder="Nhập nội dung chi tiết công việc hoặc thông báo cần gửi tới tất cả thành viên..."
-                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 text-xs bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white focus:ring-2 focus:ring-red-500 focus:outline-none"
-                />
-              </div>
-
-              <div className="flex justify-end space-x-2.5 pt-2">
-                <button
-                  type="button"
-                  onClick={() => setShowBroadcastModal(false)}
-                  className="px-4 py-2.5 rounded-xl text-xs font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800"
-                >
-                  Đóng
-                </button>
-                <button
-                  type="submit"
-                  disabled={broadcastSubmitting}
-                  className="px-5 py-2.5 rounded-xl text-xs font-extrabold text-white bg-gradient-to-r from-red-600 to-amber-600 hover:from-red-700 hover:to-amber-700 shadow-md shadow-red-200 dark:shadow-none flex items-center space-x-2 active:scale-95 disabled:opacity-50"
-                >
-                  <Send className="w-3.5 h-3.5" />
-                  <span>{broadcastSubmitting ? 'Đang gửi tới mọi người...' : 'Phát Thông Báo Ngay'}</span>
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

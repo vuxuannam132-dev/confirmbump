@@ -35,50 +35,35 @@ html.dark body {
   color: #F1F5F9;
 }
 
-html.rgb body {
-  background-color: #07090F;
-  color: #F8FAFC;
-}
-
-/* Universal Dark & RGB Mode Input & Textbox Legibility */
+/* Universal Dark Mode Input & Textbox Legibility */
 html.dark input,
 html.dark textarea,
-html.dark select,
-html.rgb input,
-html.rgb textarea,
-html.rgb select {
+html.dark select {
   background-color: #1E293B !important;
   color: #FFFFFF !important;
   border-color: #475569 !important;
 }
 
 html.dark input::placeholder,
-html.dark textarea::placeholder,
-html.rgb input::placeholder,
-html.rgb textarea::placeholder {
+html.dark textarea::placeholder {
   color: #94A3B8 !important;
 }
 
 html.dark input:focus,
 html.dark textarea:focus,
-html.dark select:focus,
-html.rgb input:focus,
-html.rgb textarea:focus,
-html.rgb select:focus {
+html.dark select:focus {
   background-color: #0F172A !important;
   color: #FFFFFF !important;
   border-color: #3B82F6 !important;
 }
 
-html.dark option,
-html.rgb option {
+html.dark option {
   background-color: #1E293B !important;
   color: #FFFFFF !important;
 }
 
-/* Fix description textboxes and pre-lines in dark/RGB mode */
-html.dark .select-text,
-html.rgb .select-text {
+/* Fix description textboxes and pre-lines in dark mode */
+html.dark .select-text {
   color: #F8FAFC !important;
 }
 
@@ -90,52 +75,6 @@ html.rgb .select-text {
   padding-bottom: max(env(safe-area-inset-bottom, 0px), 16px);
 }
 
-/* RGB Flow Keyframe */
-@keyframes rgb-flow {
-  0% {
-    background-position: 0% 50%;
-  }
-  50% {
-    background-position: 100% 50%;
-  }
-  100% {
-    background-position: 0% 50%;
-  }
-}
-
-.rgb-gradient-text {
-  background: linear-gradient(90deg, #ff007f, #7928ca, #0070f3, #00dfd8, #7928ca, #ff007f);
-  background-size: 300% 300%;
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  animation: rgb-flow 4s ease infinite;
-}
-
-.theme-rgb .rgb-border {
-  position: relative;
-  border-color: transparent !important;
-}
-
-.theme-rgb .rgb-border::before {
-  content: '';
-  position: absolute;
-  inset: -1.5px;
-  background: linear-gradient(45deg, #ff0055, #7a00ff, #00e1ff, #00ff77, #ffcc00, #ff0055);
-  background-size: 350% 350%;
-  border-radius: inherit;
-  z-index: -1;
-  animation: rgb-flow 5s ease infinite;
-  opacity: 0.9;
-}
-
-.theme-rgb .rgb-glow {
-  box-shadow: 0 0 20px rgba(0, 225, 255, 0.2), 0 0 35px rgba(255, 0, 128, 0.15);
-}
-
-.theme-rgb .rgb-card-border {
-  border: 1px solid rgba(122, 0, 255, 0.35);
-  box-shadow: 0 4px 20px -2px rgba(122, 0, 255, 0.15), 0 2px 10px -2px rgba(0, 225, 255, 0.1);
-}
 
 /* Hide scrollbar for clean horizontal tabs on mobile */
 .no-scrollbar::-webkit-scrollbar {

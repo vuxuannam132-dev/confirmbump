@@ -9,12 +9,10 @@ export function ThemeProvider({ children }) {
 
   const applyTheme = (themeName) => {
     const root = document.documentElement;
-    root.classList.remove('light', 'dark', 'rgb', 'theme-rgb');
+    root.classList.remove('light', 'dark');
 
     if (themeName === 'dark') {
       root.classList.add('dark');
-    } else if (themeName === 'rgb') {
-      root.classList.add('dark', 'rgb', 'theme-rgb');
     } else {
       root.classList.add('light');
     }

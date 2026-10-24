@@ -19,7 +19,7 @@ import {
   Smartphone,
   Sun,
   Moon,
-  Sparkles,
+  Megaphone,
   UserCheck
 } from 'lucide-react';
 
@@ -60,6 +60,7 @@ export default function Sidebar({ activeTab, setActiveTab, onOpenInstallAppModal
       badge: isReviewer ? 'Kiểm Duyệt' : 'Admin' 
     },
     { id: 'admin-tasks', label: 'Quản Lý Task', icon: PlusCircle, show: isAdminTong },
+    { id: 'broadcast', label: 'Phát Thông Báo', icon: Megaphone, show: isAdminTong },
     { id: 'users', label: 'Thành Viên', icon: Users, show: isAdminTong || isAdminCap2 },
     { id: 'settings', label: 'Cài Đặt', icon: Settings, show: true },
   ];
@@ -71,19 +72,16 @@ export default function Sidebar({ activeTab, setActiveTab, onOpenInstallAppModal
 
   const cycleTheme = () => {
     if (theme === 'light') setTheme('dark');
-    else if (theme === 'dark') setTheme('rgb');
     else setTheme('light');
   };
 
   const getThemeIcon = () => {
     if (theme === 'dark') return <Moon className="w-4 h-4 text-indigo-400" />;
-    if (theme === 'rgb') return <Sparkles className="w-4 h-4 text-pink-400 animate-spin" />;
     return <Sun className="w-4 h-4 text-amber-500" />;
   };
 
   const getThemeLabel = () => {
     if (theme === 'dark') return 'Giao diện Tối';
-    if (theme === 'rgb') return 'Giao diện RGB';
     return 'Giao diện Sáng';
   };
 
@@ -94,29 +92,26 @@ export default function Sidebar({ activeTab, setActiveTab, onOpenInstallAppModal
       {/* ========================================================================= */}
       <aside className="hidden lg:flex flex-col w-64 fixed inset-y-0 left-0 bg-white dark:bg-slate-900 border-r border-slate-200/90 dark:border-slate-800 z-40 select-none transition-colors">
         {/* Top Logo & System Brand */}
-        <div className="p-4 border-b border-slate-100 dark:border-slate-800/80 flex items-center justify-between">
+        <div className="p-3 border-b border-slate-100 dark:border-slate-800/80 flex items-center gap-2">
           <div 
             onClick={() => handleNavClick('tasks')}
-            className="cursor-pointer flex items-center space-x-2.5 group truncate"
+            className="cursor-pointer flex items-center space-x-2 group min-w-0 flex-1"
           >
-            <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-red-600 to-red-500 flex items-center justify-center text-white shadow-md shadow-red-200 dark:shadow-none group-hover:scale-105 transition-transform flex-shrink-0">
-              <Flame className="w-5 h-5 text-yellow-300 fill-yellow-300 animate-pulse" />
+            <div className="w-9 h-9 rounded-2xl bg-gradient-to-tr from-red-600 to-red-500 flex items-center justify-center text-white shadow-md shadow-red-200 dark:shadow-none group-hover:scale-105 transition-transform flex-shrink-0">
+              <Flame className="w-4 h-4 text-yellow-300 fill-yellow-300 animate-pulse" />
             </div>
-            <div className="truncate">
+            <div className="min-w-0">
               <div className="flex items-center space-x-1.5">
-                <span className="font-black text-sm tracking-tight text-slate-900 dark:text-white">
+                <span className="font-black text-sm tracking-tight text-slate-900 dark:text-white whitespace-nowrap">
                   ĐOÀN TRƯỜNG
                 </span>
-                <span className="text-[10px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded bg-yellow-400 text-yellow-950 shadow-xs">
+                <span className="text-[10px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded bg-yellow-400 text-yellow-950 shadow-xs flex-shrink-0">
                   BUMP
                 </span>
               </div>
-              <p className="text-[10px] text-slate-400 dark:text-slate-500 font-medium truncate">
-                Xác nhận tương tác
-              </p>
             </div>
           </div>
-          <div className="flex-shrink-0 ml-2">
+          <div className="flex-shrink-0">
             <NotificationBell onNavigateTab={handleNavClick} />
           </div>
         </div>
@@ -161,7 +156,7 @@ export default function Sidebar({ activeTab, setActiveTab, onOpenInstallAppModal
               <button
                 key={item.id}
                 onClick={() => handleNavClick(item.id)}
-                className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-2xl text-xs font-bold transition-all ${
+                className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-2xl text-xs font-bold transition-all duration-150 active:scale-95 ${
                   isActive 
                     ? 'bg-red-600 text-white shadow-sm shadow-red-200 dark:shadow-none font-extrabold' 
                     : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100/80 dark:hover:bg-slate-800'
@@ -190,7 +185,7 @@ export default function Sidebar({ activeTab, setActiveTab, onOpenInstallAppModal
             type="button"
             onClick={cycleTheme}
             className="w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
-            title="Nhấn để đổi Giao diện Sáng / Tối / RGB"
+            title="Nhấn để đổi Giao diện Sáng / Tối"
           >
             <div className="flex items-center space-x-2.5">
               {getThemeIcon()}
@@ -259,7 +254,7 @@ export default function Sidebar({ activeTab, setActiveTab, onOpenInstallAppModal
             <NotificationBell onNavigateTab={handleNavClick} />
 
             {/* Quick Role Pill */}
-            <span className={`text-[10px] font-black uppercase px-2.5 py-0.5 rounded-full ${roleBadgeStyle}`}>
+            <span className={`text-[10px] font-black uppercase px-2.5 py-0.5 rounded-full whitespace-nowrap ${roleBadgeStyle}`}>
               {roleText}
             </span>
 
@@ -289,7 +284,7 @@ export default function Sidebar({ activeTab, setActiveTab, onOpenInstallAppModal
 
           {/* Drawer Content */}
           <div 
-            className="relative ml-auto w-4/5 max-w-xs bg-white dark:bg-slate-900 h-full shadow-2xl flex flex-col justify-between p-5 z-10 animate-in slide-in-from-right duration-200 overflow-y-auto"
+            className="relative mr-auto w-4/5 max-w-xs bg-white dark:bg-slate-900 h-full shadow-2xl flex flex-col justify-between p-5 z-10 animate-in slide-in-from-left duration-200 overflow-y-auto"
             style={{
               paddingTop: 'max(env(safe-area-inset-top, 0px), 20px)',
               paddingBottom: 'max(env(safe-area-inset-bottom, 0px), 24px)',
@@ -345,7 +340,7 @@ export default function Sidebar({ activeTab, setActiveTab, onOpenInstallAppModal
                     <button
                       key={item.id}
                       onClick={() => handleNavClick(item.id)}
-                      className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-bold transition-all ${
+                      className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-bold transition-all duration-150 active:scale-95 ${
                         isActive 
                           ? 'bg-red-600 text-white shadow-xs font-extrabold' 
                           : 'text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800'

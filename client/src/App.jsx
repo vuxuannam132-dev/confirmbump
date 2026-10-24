@@ -11,6 +11,7 @@ import DepartmentTrackingPage from './pages/DepartmentTrackingPage';
 import AdminUsersPage from './pages/AdminUsersPage';
 import PersonalHistoryPage from './pages/PersonalHistoryPage';
 import SettingsPage from './pages/SettingsPage';
+import BroadcastPage from './pages/BroadcastPage';
 import InstallAppModal from './components/InstallAppModal';
 import { Smartphone } from 'lucide-react';
 
@@ -66,6 +67,7 @@ function AppContent() {
             {activeTab === 'progress' && canTrackProgress && <DepartmentTrackingPage />}
             {activeTab === 'review' && canReview && <AdminReviewPage />}
             {activeTab === 'admin-tasks' && isAdminTong && <AdminTasksPage />}
+            {activeTab === 'broadcast' && isAdminTong && <BroadcastPage />}
             {activeTab === 'users' && (isAdminTong || isAdminCap2) && <AdminUsersPage />}
             {activeTab === 'settings' && <SettingsPage />}
           </main>
