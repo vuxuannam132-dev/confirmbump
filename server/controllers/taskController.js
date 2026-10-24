@@ -1,5 +1,6 @@
 const db = require('../config/db');
 const { formatSubmission } = require('./confirmController');
+const pushService = require('../utils/pushService');
 
 // POST /api/tasks (Only Admin Tổng)
 async function createTask(req, res) {
@@ -33,6 +34,17 @@ async function createTask(req, res) {
       finalDeadline,
       makeupDeadline
     ]);
+
+    // Send push notification about new task to members and admin cap 2
+    pushService.notifyNewTask({
+      id: result.lastInsertRowid,
+      title: title.trim(),
+      platform: platform.toUpperCase(),
+      post_url: post_url.trim(),
+      deadline: finalDeadline,
+      makeup_deadline: makeupDeadline,
+      target_department_id: deptId
+    }).catch(err => console.warn('Push notifyNewTask err:', err.message));
 
     return res.status(201).json({
       success: true,

@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
 import api from '../services/api';
+import pushNotificationService from '../services/pushNotificationService';
 import DepartmentBadge from '../components/DepartmentBadge';
 import { 
   Settings, 
@@ -25,7 +26,10 @@ import {
   Check,
   Copy,
   RefreshCw,
-  Server
+  Server,
+  Bell,
+  Smartphone,
+  Info
 } from 'lucide-react';
 
 export default function SettingsPage() {
@@ -54,6 +58,48 @@ export default function SettingsPage() {
   const [storageLoading, setStorageLoading] = useState(false);
   const [testLoading, setTestLoading] = useState(false);
   const [copiedKey, setCopiedKey] = useState(false);
+
+  // Push Notification States
+  const [isPushSubscribed, setIsPushSubscribed] = useState(false);
+  const [pushLoading, setPushLoading] = useState(false);
+  const [pushMessage, setPushMessage] = useState(null);
+
+  const deviceEnv = pushNotificationService.getDeviceEnvironment();
+  const isPushSupported = pushNotificationService.isSupported();
+
+  useEffect(() => {
+    checkPushStatus();
+  }, []);
+
+  const checkPushStatus = async () => {
+    if (!isPushSupported) return;
+    try {
+      const sub = await pushNotificationService.isSubscribed();
+      setIsPushSubscribed(sub);
+    } catch (e) {
+      setIsPushSubscribed(false);
+    }
+  };
+
+  const handleTogglePush = async () => {
+    setPushLoading(true);
+    setPushMessage(null);
+    try {
+      if (isPushSubscribed) {
+        await pushNotificationService.unsubscribe();
+        setIsPushSubscribed(false);
+        setPushMessage({ type: 'success', text: 'Đã hủy nhận thông báo đẩy trên thiết bị này.' });
+      } else {
+        await pushNotificationService.subscribe();
+        setIsPushSubscribed(true);
+        setPushMessage({ type: 'success', text: '🎉 Tuyệt vời! Thiết bị này đã sẵn sàng nhận thông báo đẩy.' });
+      }
+    } catch (err) {
+      setPushMessage({ type: 'error', text: err.message || 'Lỗi khi cài đặt thông báo.' });
+    } finally {
+      setPushLoading(false);
+    }
+  };
 
   useEffect(() => {
     if (user?.role === 'ADMIN_TONG') {
@@ -429,6 +475,90 @@ export default function SettingsPage() {
               </a>
             </div>
           )}
+        </div>
+      </div>
+
+      {/* Cài đặt Thông Báo Điện Thoại (Web Push) */}
+      <div className="bg-white dark:bg-slate-900 rounded-3xl p-4 sm:p-6 border border-slate-200/80 dark:border-slate-800 shadow-xs space-y-4">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-100 dark:border-slate-800">
+          <div className="flex items-center space-x-2.5">
+            <div className="w-9 h-9 rounded-xl bg-red-100 dark:bg-red-950/60 text-red-600 dark:text-red-400 flex items-center justify-center flex-shrink-0">
+              <Bell className="w-5 h-5" />
+            </div>
+            <div>
+              <h2 className="text-sm sm:text-base font-black text-slate-900 dark:text-white">
+                Thông Báo Đẩy Điện Thoại (Push Notifications)
+              </h2>
+              <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                Nhận chuông và rung thông báo trực tiếp về màn hình khoá như một ứng dụng di động thật
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-center space-x-2">
+            <span className={`text-[10px] font-black uppercase px-2.5 py-1 rounded-full ${
+              isPushSubscribed 
+                ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/80 dark:text-emerald-300' 
+                : 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400'
+            }`}>
+              {isPushSubscribed ? '🔔 Đang Bật' : '🔕 Đang Tắt'}
+            </span>
+            <button
+              type="button"
+              onClick={handleTogglePush}
+              disabled={pushLoading}
+              className={`px-3.5 py-1.5 rounded-xl text-xs font-black transition-all active:scale-95 disabled:opacity-50 ${
+                isPushSubscribed
+                  ? 'bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-300'
+                  : 'bg-red-600 text-white hover:bg-red-700 shadow-sm'
+              }`}
+            >
+              {pushLoading ? 'Đang xử lý...' : (isPushSubscribed ? 'Tắt Trên Thiết Bị Này' : 'Bật Thông Báo Ngay')}
+            </button>
+          </div>
+        </div>
+
+        {pushMessage && (
+          <div className={`p-3 rounded-2xl text-xs font-bold border ${
+            pushMessage.type === 'success'
+              ? 'bg-emerald-50 text-emerald-800 border-emerald-200 dark:bg-emerald-950/50 dark:text-emerald-300'
+              : 'bg-red-50 text-red-800 border-red-200 dark:bg-red-950/50 dark:text-red-300'
+          }`}>
+            {pushMessage.text}
+          </div>
+        )}
+
+        {/* Detailed role explanation */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+          <div className="p-3.5 bg-slate-50 dark:bg-slate-800/40 rounded-2xl border border-slate-200/60 dark:border-slate-700/60">
+            <span className="text-[10px] font-bold uppercase text-slate-400 block">Quyền lợi nhận thông báo của bạn:</span>
+            <p className="text-slate-700 dark:text-slate-300 mt-1 font-medium leading-relaxed">
+              {user?.role === 'ADMIN_TONG' && (
+                <>⭐ <b>BCH (Admin Tổng):</b> Nhận thông báo ngay khi có đoàn viên nộp minh chứng bump bài để vào duyệt, nhận thông báo công việc và có quyền phát thông báo toàn đoàn.</>
+              )}
+              {user?.role === 'KIEM_DUYET' && (
+                <>⭐ <b>Người kiểm duyệt:</b> Nhận thông báo tức thì khi có đoàn viên nộp minh chứng bump bài (cả 4 ban), và nhận thông báo khi có nhiệm vụ mới.</>
+              )}
+              {user?.role === 'ADMIN_CAP_2' && (
+                <>⭐ <b>BCH:</b> Nhận thông báo khi có nhiệm vụ bump bài mới cho ban mình / toàn đoàn, và thông báo công việc chung.</>
+              )}
+              {user?.role === 'USER' && (
+                <>⭐ <b>CTV:</b> Nhận thông báo ngay khi Admin đăng task bump bài mới và nhận thông báo khi bài nộp của bạn được Duyệt hoặc Từ chối.</>
+              )}
+            </p>
+          </div>
+
+          <div className="p-3.5 bg-slate-50 dark:bg-slate-800/40 rounded-2xl border border-slate-200/60 dark:border-slate-700/60">
+            <span className="text-[10px] font-bold uppercase text-slate-400 block">Hướng dẫn trên iPhone & Android:</span>
+            <div className="mt-1 space-y-1.5 text-slate-600 dark:text-slate-400 text-[11px] leading-relaxed">
+              <p>
+                📱 <b>iPhone/iPad (iOS 16.4+):</b> Mở Safari &rarr; bấm nút <b>Chia sẻ (Share ⬆️)</b> &rarr; chọn <b>"Thêm vào Màn hình chính"</b>. Sau đó mở app từ màn hình chính để nhận thông báo đẩy.
+              </p>
+              <p>
+                🤖 <b>Android:</b> Bật trực tiếp trên Chrome, Samsung Internet hoặc dùng ứng dụng APK/PWA đã cài đặt.
+              </p>
+            </div>
+          </div>
         </div>
       </div>
 

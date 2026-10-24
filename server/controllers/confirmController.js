@@ -1,6 +1,7 @@
 const path = require('path');
 const fs = require('fs');
 const db = require('../config/db');
+const pushService = require('../utils/pushService');
 
 // Helper to normalize submission images (supports both legacy single URL and new multi-image JSON array)
 function formatSubmission(sub) {
@@ -136,6 +137,10 @@ async function submitConfirm(req, res) {
     // Check if user already submitted
     const existing = await db.get('SELECT id FROM confirm_submissions WHERE task_id = ? AND user_id = ?', [task_id, currentUser.id]);
 
+    // Send push notification to Admin Tổng & Người kiểm duyệt
+    pushService.notifyNewConfirm(task, currentUser, imageUrls.length)
+      .catch(err => console.warn('Push notifyNewConfirm err:', err.message));
+
     if (existing) {
       await db.run(`
         UPDATE confirm_submissions
@@ -234,7 +239,13 @@ async function reviewConfirm(req, res) {
       return res.status(400).json({ success: false, message: 'Trạng thái duyệt phải là APPROVED hoặc REJECTED.' });
     }
 
-    const sub = await db.get('SELECT id FROM confirm_submissions WHERE id = ?', [confirmId]);
+    const sub = await db.get(`
+      SELECT s.id, s.user_id, s.task_id, t.title as task_title 
+      FROM confirm_submissions s
+      JOIN tasks t ON s.task_id = t.id
+      WHERE s.id = ?
+    `, [confirmId]);
+
     if (!sub) {
       return res.status(404).json({ success: false, message: 'Không tìm thấy lượt nộp confirm.' });
     }
@@ -244,6 +255,10 @@ async function reviewConfirm(req, res) {
       SET status = ?, admin_feedback = ?, reviewed_by = ?, reviewed_at = CURRENT_TIMESTAMP
       WHERE id = ?
     `, [status, (admin_feedback || '').trim(), currentUser.id, confirmId]);
+
+    // Send push notification to member about approval or rejection result
+    pushService.notifyConfirmResult(sub, status, admin_feedback)
+      .catch(err => console.warn('Push notifyConfirmResult err:', err.message));
 
     return res.json({
       success: true,

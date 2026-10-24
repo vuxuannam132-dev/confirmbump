@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
 import DepartmentBadge from './DepartmentBadge';
+import NotificationBell from './NotificationBell';
 import { 
   CheckSquare, 
   ListOrdered, 
@@ -93,25 +94,30 @@ export default function Sidebar({ activeTab, setActiveTab, onOpenInstallAppModal
       {/* ========================================================================= */}
       <aside className="hidden lg:flex flex-col w-64 fixed inset-y-0 left-0 bg-white dark:bg-slate-900 border-r border-slate-200/90 dark:border-slate-800 z-40 select-none transition-colors">
         {/* Top Logo & System Brand */}
-        <div 
-          onClick={() => handleNavClick('tasks')}
-          className="p-5 border-b border-slate-100 dark:border-slate-800/80 cursor-pointer flex items-center space-x-3 group"
-        >
-          <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-red-600 to-red-500 flex items-center justify-center text-white shadow-md shadow-red-200 dark:shadow-none group-hover:scale-105 transition-transform flex-shrink-0">
-            <Flame className="w-5 h-5 text-yellow-300 fill-yellow-300 animate-pulse" />
-          </div>
-          <div className="truncate">
-            <div className="flex items-center space-x-1.5">
-              <span className="font-black text-sm tracking-tight text-slate-900 dark:text-white">
-                ĐOÀN TRƯỜNG
-              </span>
-              <span className="text-[10px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded bg-yellow-400 text-yellow-950 shadow-xs">
-                BUMP
-              </span>
+        <div className="p-4 border-b border-slate-100 dark:border-slate-800/80 flex items-center justify-between">
+          <div 
+            onClick={() => handleNavClick('tasks')}
+            className="cursor-pointer flex items-center space-x-2.5 group truncate"
+          >
+            <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-red-600 to-red-500 flex items-center justify-center text-white shadow-md shadow-red-200 dark:shadow-none group-hover:scale-105 transition-transform flex-shrink-0">
+              <Flame className="w-5 h-5 text-yellow-300 fill-yellow-300 animate-pulse" />
             </div>
-            <p className="text-[10px] text-slate-400 dark:text-slate-500 font-medium truncate">
-              Hệ thống xác nhận tương tác
-            </p>
+            <div className="truncate">
+              <div className="flex items-center space-x-1.5">
+                <span className="font-black text-sm tracking-tight text-slate-900 dark:text-white">
+                  ĐOÀN TRƯỜNG
+                </span>
+                <span className="text-[10px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded bg-yellow-400 text-yellow-950 shadow-xs">
+                  BUMP
+                </span>
+              </div>
+              <p className="text-[10px] text-slate-400 dark:text-slate-500 font-medium truncate">
+                Xác nhận tương tác
+              </p>
+            </div>
+          </div>
+          <div className="flex-shrink-0 ml-2">
+            <NotificationBell onNavigateTab={handleNavClick} />
           </div>
         </div>
 
@@ -250,6 +256,8 @@ export default function Sidebar({ activeTab, setActiveTab, onOpenInstallAppModal
           </div>
 
           <div className="flex items-center space-x-2">
+            <NotificationBell onNavigateTab={handleNavClick} />
+
             {/* Quick Role Pill */}
             <span className={`text-[10px] font-black uppercase px-2.5 py-0.5 rounded-full ${roleBadgeStyle}`}>
               {roleText}
