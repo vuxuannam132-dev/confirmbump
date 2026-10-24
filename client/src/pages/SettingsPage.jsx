@@ -92,12 +92,34 @@ export default function SettingsPage() {
       } else {
         await pushNotificationService.subscribe();
         setIsPushSubscribed(true);
-        setPushMessage({ type: 'success', text: '🎉 Tuyệt vời! Thiết bị này đã sẵn sàng nhận thông báo đẩy.' });
+        setPushMessage({ type: 'success', text: '🎉 Tuyệt vời! Thiết bị này đã sẵn sàng nhận thông báo đẩy. Một thông báo thử nghiệm đã được gửi tới máy bạn.' });
       }
     } catch (err) {
       setPushMessage({ type: 'error', text: err.message || 'Lỗi khi cài đặt thông báo.' });
     } finally {
       setPushLoading(false);
+    }
+  };
+
+  const [testingPush, setTestingPush] = useState(false);
+
+  const handleTestPush = async () => {
+    setTestingPush(true);
+    setPushMessage(null);
+    try {
+      const res = await pushNotificationService.testMyDevice();
+      if (res.success) {
+        setPushMessage({
+          type: 'success',
+          text: '🔔 Đã bắn thông báo thử nghiệm tới điện thoại! Trên iPhone, nếu bạn đang mở app hãy khoá màn hình hoặc chuyển sang ứng dụng khác trong 3 giây để thấy biểu ngữ thông báo xuất hiện.'
+        });
+      } else {
+        setPushMessage({ type: 'error', text: res.message || 'Không gửi được thông báo.' });
+      }
+    } catch (err) {
+      setPushMessage({ type: 'error', text: err.response?.data?.message || err.message });
+    } finally {
+      setTestingPush(false);
     }
   };
 
@@ -495,7 +517,7 @@ export default function SettingsPage() {
             </div>
           </div>
 
-          <div className="flex items-center space-x-2">
+          <div className="flex flex-wrap items-center gap-2">
             <span className={`text-[10px] font-black uppercase px-2.5 py-1 rounded-full ${
               isPushSubscribed 
                 ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/80 dark:text-emerald-300' 
@@ -503,6 +525,18 @@ export default function SettingsPage() {
             }`}>
               {isPushSubscribed ? '🔔 Đang Bật' : '🔕 Đang Tắt'}
             </span>
+
+            {isPushSubscribed && (
+              <button
+                type="button"
+                onClick={handleTestPush}
+                disabled={testingPush}
+                className="px-3.5 py-1.5 rounded-xl text-xs font-black text-red-700 dark:text-red-300 bg-red-100 dark:bg-red-950/80 hover:bg-red-200 border border-red-300 dark:border-red-800 transition-all active:scale-95 disabled:opacity-50"
+              >
+                {testingPush ? 'Đang gửi...' : 'Gửi Thử Nghiệm Tới Máy'}
+              </button>
+            )}
+
             <button
               type="button"
               onClick={handleTogglePush}
@@ -555,7 +589,10 @@ export default function SettingsPage() {
                 📱 <b>iPhone/iPad (iOS 16.4+):</b> Mở Safari &rarr; bấm nút <b>Chia sẻ (Share ⬆️)</b> &rarr; chọn <b>"Thêm vào Màn hình chính"</b>. Sau đó mở app từ màn hình chính để nhận thông báo đẩy.
               </p>
               <p>
-                🤖 <b>Android:</b> Bật trực tiếp trên Chrome, Samsung Internet hoặc dùng ứng dụng APK/PWA đã cài đặt.
+                🔒 <b>Cơ chế thông báo iOS:</b> Khi bạn đang mở app, iOS sẽ không hiện biểu ngữ che màn hình. Hãy <b>khoá màn hình</b> hoặc <b>thoát app</b> trong 3 giây để thấy thông báo xuất hiện trên màn hình khoá!
+              </p>
+              <p>
+                ⚙️ <b>Cài đặt iOS:</b> Vào Cài đặt máy &rarr; ConfirmBump &rarr; Thông báo &rarr; đảm bảo đã tích chọn cả <b>Màn hình khoá, Trung tâm thông báo, Biểu ngữ</b> và <b>Âm thanh</b>.
               </p>
             </div>
           </div>

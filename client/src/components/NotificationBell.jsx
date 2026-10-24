@@ -23,7 +23,9 @@ export default function NotificationBell({ onNavigateTab }) {
   const [loading, setLoading] = useState(false);
   const [isSubscribed, setIsSubscribed] = useState(false);
   const [subscribing, setSubscribing] = useState(false);
+  const [testingPush, setTestingPush] = useState(false);
   const [pushStatusMessage, setPushStatusMessage] = useState('');
+  const [foregroundToast, setForegroundToast] = useState(null);
   const dropdownRef = useRef(null);
 
   const deviceEnv = pushNotificationService.getDeviceEnvironment();
@@ -59,7 +61,30 @@ export default function NotificationBell({ onNavigateTab }) {
 
     // Auto poll notifications every 35 seconds
     const interval = setInterval(fetchNotifications, 35000);
-    return () => clearInterval(interval);
+
+    // Listen for push notifications when app is active in foreground
+    const handleSwMessage = (event) => {
+      if (event.data?.type === 'PUSH_NOTIFICATION_RECEIVED') {
+        setForegroundToast({
+          title: event.data.title,
+          body: event.data.body,
+          url: event.data.url
+        });
+        fetchNotifications();
+        setTimeout(() => setForegroundToast(null), 7000);
+      }
+    };
+
+    if (typeof window !== 'undefined' && 'serviceWorker' in navigator) {
+      navigator.serviceWorker.addEventListener('message', handleSwMessage);
+    }
+
+    return () => {
+      clearInterval(interval);
+      if (typeof window !== 'undefined' && 'serviceWorker' in navigator) {
+        navigator.serviceWorker.removeEventListener('message', handleSwMessage);
+      }
+    };
   }, []);
 
   // Close dropdown on outside click
@@ -89,12 +114,30 @@ export default function NotificationBell({ onNavigateTab }) {
       } else {
         await pushNotificationService.subscribe();
         setIsSubscribed(true);
-        setPushStatusMessage('🎉 Thành công! Thiết bị sẽ nhận được thông báo đẩy.');
+        setPushStatusMessage('🎉 Thành công! Một thông báo thử nghiệm đã được gửi tới máy bạn.');
       }
     } catch (err) {
       setPushStatusMessage(`⚠️ ${err.message || 'Không thể bật thông báo.'}`);
     } finally {
       setSubscribing(false);
+    }
+  };
+
+  // Test push notification directly to this device
+  const handleTestPush = async () => {
+    setTestingPush(true);
+    setPushStatusMessage('');
+    try {
+      const res = await pushNotificationService.testMyDevice();
+      if (res.success) {
+        setPushStatusMessage('🔔 Đã bắn thông báo tới điện thoại! Trên iPhone, nếu đang mở app hãy khoá màn hình hoặc chuyển sang app khác trong 3 giây để thấy banner.');
+      } else {
+        setPushStatusMessage(`⚠️ ${res.message || 'Chưa gửi được thông báo.'}`);
+      }
+    } catch (err) {
+      setPushStatusMessage(`⚠️ ${err.response?.data?.message || err.message}`);
+    } finally {
+      setTestingPush(false);
     }
   };
 
@@ -167,7 +210,41 @@ export default function NotificationBell({ onNavigateTab }) {
   };
 
   return (
-    <div className="relative inline-block" ref={dropdownRef}>
+    <>
+      {/* Foreground Toast Notification Banner for active app viewing */}
+      {foregroundToast && (
+        <div 
+          onClick={() => {
+            if (onNavigateTab) onNavigateTab('tasks');
+            setForegroundToast(null);
+          }}
+          className="fixed top-3 inset-x-3 sm:inset-x-auto sm:right-6 sm:w-96 z-50 p-3.5 bg-slate-900/95 text-white rounded-2xl shadow-2xl border border-red-500/60 backdrop-blur-md flex items-start space-x-3 cursor-pointer animate-in slide-in-from-top duration-300 select-none"
+        >
+          <div className="p-2 bg-red-600 rounded-xl flex-shrink-0">
+            <Flame className="w-4 h-4 text-yellow-300" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center justify-between">
+              <span className="text-[10px] font-black uppercase tracking-wider text-red-400">Thông báo mới</span>
+              <span className="text-[9px] text-slate-400">Vừa xong</span>
+            </div>
+            <h4 className="text-xs font-black text-white truncate mt-0.5">{foregroundToast.title}</h4>
+            <p className="text-[11px] text-slate-300 line-clamp-2 mt-0.5 leading-relaxed">{foregroundToast.body}</p>
+          </div>
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              setForegroundToast(null);
+            }}
+            className="text-slate-400 hover:text-white p-1 rounded-lg"
+          >
+            <X className="w-3.5 h-3.5" />
+          </button>
+        </div>
+      )}
+
+      <div className="relative inline-block" ref={dropdownRef}>
       {/* Bell Trigger Button */}
       <button
         type="button"
@@ -235,21 +312,34 @@ export default function NotificationBell({ onNavigateTab }) {
                   </span>
                 </div>
               </div>
-              <button
-                type="button"
-                onClick={handleTogglePush}
-                disabled={subscribing}
-                className={`px-2.5 py-1 rounded-xl text-[11px] font-black tracking-tight transition-all active:scale-95 flex-shrink-0 ${
-                  isSubscribed 
-                    ? 'bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-200 hover:bg-slate-300' 
-                    : 'bg-red-600 text-white hover:bg-red-700 shadow-xs'
-                }`}
-              >
-                {subscribing ? 'Đang xử lý...' : (isSubscribed ? 'Tắt' : 'Bật Ngay')}
-              </button>
+              <div className="flex items-center space-x-1.5 flex-shrink-0">
+                {isSubscribed && (
+                  <button
+                    type="button"
+                    onClick={handleTestPush}
+                    disabled={testingPush}
+                    className="px-2.5 py-1 rounded-xl text-[10px] font-extrabold bg-red-100 dark:bg-red-950/80 text-red-700 dark:text-red-300 hover:bg-red-200 border border-red-300 dark:border-red-800 transition-all active:scale-95 disabled:opacity-50"
+                    title="Gửi 1 thông báo thử nghiệm về điện thoại này"
+                  >
+                    {testingPush ? 'Đang gửi...' : 'Gửi Thử'}
+                  </button>
+                )}
+                <button
+                  type="button"
+                  onClick={handleTogglePush}
+                  disabled={subscribing}
+                  className={`px-2.5 py-1 rounded-xl text-[11px] font-black tracking-tight transition-all active:scale-95 ${
+                    isSubscribed 
+                      ? 'bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-200 hover:bg-slate-300' 
+                      : 'bg-red-600 text-white hover:bg-red-700 shadow-xs'
+                  }`}
+                >
+                  {subscribing ? 'Đang xử lý...' : (isSubscribed ? 'Tắt' : 'Bật Ngay')}
+                </button>
+              </div>
             </div>
             {pushStatusMessage && (
-              <p className="mt-1.5 text-[10px] font-medium text-slate-700 dark:text-slate-300 animate-in fade-in">
+              <p className="mt-2 p-2 rounded-lg bg-white/80 dark:bg-slate-800/80 text-[11px] font-semibold text-slate-800 dark:text-slate-200 border border-slate-200 dark:border-slate-700 animate-in fade-in leading-relaxed">
                 {pushStatusMessage}
               </p>
             )}
@@ -310,6 +400,7 @@ export default function NotificationBell({ onNavigateTab }) {
           </div>
         </div>
       )}
-    </div>
+      </div>
+    </>
   );
 }

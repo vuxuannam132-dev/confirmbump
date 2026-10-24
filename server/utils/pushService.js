@@ -4,7 +4,7 @@ const db = require('../config/db');
 // VAPID Keys for Đoàn trường Web Push Notifications
 const VAPID_PUBLIC_KEY = process.env.VAPID_PUBLIC_KEY || 'BNtSgMRaceaLQLPa66aCj9e-boBuZ_MeLr5WylHBUpAgHWoYcMaXgO4nAQhvsajNgAuf6u3GsFVOyDDBFLgzGuU';
 const VAPID_PRIVATE_KEY = process.env.VAPID_PRIVATE_KEY || 'i8qnVMxU8nqXKQpTGIH67Jbhv0bAZUIhr0yI564-FWw';
-const VAPID_SUBJECT = process.env.VAPID_SUBJECT || 'mailto:admin_BCH_doantruongdkhbt@doantruong.edu.vn';
+const VAPID_SUBJECT = process.env.VAPID_SUBJECT || 'https://confirmbump.vercel.app';
 
 try {
   webpush.setVapidDetails(VAPID_SUBJECT, VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY);
@@ -61,16 +61,25 @@ async function sendRawPush(sub, payload) {
         auth: sub.auth
       }
     };
-    await webpush.sendNotification(pushSubscription, JSON.stringify(payload));
-    return true;
+
+    const options = {
+      TTL: 86400, // 24 hours
+      urgency: 'high', // Critical for iOS/APNs immediate banner alert (apns-priority: 10)
+      headers: {
+        'Urgency': 'high',
+        'Topic': 'confirmbump'
+      }
+    };
+
+    const result = await webpush.sendNotification(pushSubscription, JSON.stringify(payload), options);
+    return { ok: true, statusCode: result.statusCode || 201 };
   } catch (err) {
+    console.error(`⚠️ Lỗi WebPush [${err.statusCode || 'N/A'}] tới endpoint ${sub.endpoint?.substring(0, 45)}... :`, err.body || err.message);
     // 404 Not Found or 410 Gone means subscription expired or uninstalled
     if (err.statusCode === 404 || err.statusCode === 410) {
       await removeSubscription(sub.endpoint);
-    } else {
-      console.warn('⚠️ Lỗi gửi WebPush tới endpoint:', err.statusCode || err.message);
     }
-    return false;
+    return { ok: false, statusCode: err.statusCode, message: err.body || err.message };
   }
 }
 
@@ -79,8 +88,8 @@ async function dispatchPushToSubscriptions(subs, payload) {
   if (!subs || subs.length === 0) return 0;
   let sentCount = 0;
   await Promise.all(subs.map(async (sub) => {
-    const ok = await sendRawPush(sub, payload);
-    if (ok) sentCount++;
+    const res = await sendRawPush(sub, payload);
+    if (res && res.ok) sentCount++;
   }));
   return sentCount;
 }
@@ -280,6 +289,7 @@ module.exports = {
   getPublicKey,
   saveSubscription,
   removeSubscription,
+  sendRawPush,
   notifyNewTask,
   notifyNewConfirm,
   notifyBroadcast,

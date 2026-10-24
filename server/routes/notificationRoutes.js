@@ -9,6 +9,7 @@ router.get('/vapid-public-key', notificationController.getVapidPublicKey);
 // Subscribe & Unsubscribe to push notifications
 router.post('/subscribe', verifyToken, notificationController.subscribePush);
 router.post('/unsubscribe', verifyToken, notificationController.unsubscribePush);
+router.post('/test-my-device', verifyToken, notificationController.testMyDevice);
 
 // In-app notifications
 router.get('/my-notifications', verifyToken, notificationController.getMyNotifications);

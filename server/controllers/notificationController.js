@@ -18,19 +18,95 @@ async function subscribePush(req, res) {
     const user = req.user;
     const userAgent = req.headers['user-agent'] || '';
 
-    if (!subscription || !subscription.endpoint) {
-      return res.status(400).json({ success: false, message: 'Dữ liệu đăng ký push không hợp lệ.' });
+    if (!subscription || !subscription.endpoint || !subscription.keys) {
+      return res.status(400).json({ success: false, message: 'Dữ liệu đăng ký push không hợp lệ (thiếu keys mã hóa).' });
     }
 
     const subId = await pushService.saveSubscription(user.id, subscription, userAgent);
 
+    if (!subId) {
+      return res.status(500).json({ success: false, message: 'Không thể lưu thông tin đăng ký thiết bị vào cơ sở dữ liệu.' });
+    }
+
+    // Immediately trigger a welcome notification to verify connection on user's phone
+    const welcomePayload = {
+      title: '🎉 Thông Báo Đoàn Trường Đã Hoạt Động',
+      body: `Xin chào ${user.full_name}! Bạn sẽ nhận được thông báo ngay khi có task mới hoặc kết quả duyệt confirm.`,
+      url: '/',
+      icon: '/icon-192.png',
+      badge: '/icon-192.png',
+      tag: `welcome-${Date.now()}`
+    };
+
+    pushService.sendRawPush({
+      endpoint: subscription.endpoint,
+      p256dh: subscription.keys.p256dh,
+      auth: subscription.keys.auth
+    }, welcomePayload).catch(err => {
+      console.warn('Welcome push notification warning:', err.message);
+    });
+
     return res.json({
       success: true,
-      message: 'Đăng ký nhận thông báo đẩy về thiết bị thành công!',
+      message: 'Đăng ký nhận thông báo đẩy về thiết bị thành công! Một thông báo thử nghiệm đã được gửi tới máy bạn.',
       subId
     });
   } catch (error) {
     console.error('Error in subscribePush:', error);
+    return res.status(500).json({ success: false, message: error.message });
+  }
+}
+
+// POST /api/notifications/test-my-device
+async function testMyDevice(req, res) {
+  try {
+    const user = req.user;
+    const subs = await db.all('SELECT * FROM push_subscriptions WHERE user_id = ?', [user.id]);
+
+    if (!subs || subs.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: 'Chưa có thiết bị nào được lưu cho tài khoản này. Vui lòng bấm "Bật Thông Báo Ngay" trước.'
+      });
+    }
+
+    const payload = {
+      title: '🔔 Thông Báo Thử Nghiệm Từ Đoàn Trường',
+      body: `Xin chào ${user.full_name}! Thông báo đẩy trên thiết bị của bạn đang hoạt động rất tốt!`,
+      url: '/',
+      icon: '/icon-192.png',
+      badge: '/icon-192.png',
+      tag: `test-push-${Date.now()}`
+    };
+
+    const results = [];
+    for (const sub of subs) {
+      const pushRes = await pushService.sendRawPush(sub, payload);
+      let endpointHost = 'Unknown';
+      try {
+        endpointHost = new URL(sub.endpoint).hostname;
+      } catch (e) {}
+
+      results.push({
+        id: sub.id,
+        endpointHost,
+        status: pushRes.ok ? 'SUCCESS' : 'FAILED',
+        statusCode: pushRes.statusCode,
+        error: pushRes.message || null
+      });
+    }
+
+    const successCount = results.filter(r => r.status === 'SUCCESS').length;
+
+    return res.json({
+      success: successCount > 0,
+      message: successCount > 0
+        ? `Đã gửi thông báo thử nghiệm thành công tới ${successCount}/${subs.length} thiết bị!`
+        : 'Gửi thông báo thử nghiệm thất bại. Vui lòng kiểm tra lại quyền thông báo của thiết bị.',
+      results
+    });
+  } catch (error) {
+    console.error('Error in testMyDevice:', error);
     return res.status(500).json({ success: false, message: error.message });
   }
 }
@@ -128,6 +204,7 @@ module.exports = {
   getVapidPublicKey,
   subscribePush,
   unsubscribePush,
+  testMyDevice,
   getMyNotifications,
   markAsRead,
   sendBroadcast
