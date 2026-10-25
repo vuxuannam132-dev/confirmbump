@@ -17,7 +17,8 @@ import {
   ShieldCheck,
   Mail,
   Smartphone,
-  Check
+  Check,
+  Clock
 } from 'lucide-react';
 
 export default function LoginPage({ onNavigateRegister }) {
@@ -47,7 +48,39 @@ export default function LoginPage({ onNavigateRegister }) {
   // Trusted Device 2FA states
   const [trustedDeviceChallenge, setTrustedDeviceChallenge] = useState(null); // { challenge_token, device_info, no_trusted_devices, setup_token }
   const [trustedDevicePolling, setTrustedDevicePolling] = useState(false);
-  const [approvalStatus, setApprovalStatus] = useState('WAITING'); // 'WAITING' | 'APPROVED' | 'EXPIRED'
+  const [approvalStatus, setApprovalStatus] = useState('WAITING'); // 'WAITING' | 'APPROVED' | 'REJECTED' | 'EXPIRED'
+
+  // 20-minute Lockout Countdown State
+  const [lockoutSeconds, setLockoutSeconds] = useState(() => {
+    const savedUntil = sessionStorage.getItem('auth_lockout_until');
+    if (savedUntil) {
+      const remaining = Math.ceil((new Date(savedUntil).getTime() - Date.now()) / 1000);
+      return remaining > 0 ? remaining : 0;
+    }
+    return 0;
+  });
+
+  useEffect(() => {
+    let timer;
+    if (lockoutSeconds > 0) {
+      timer = setTimeout(() => {
+        setLockoutSeconds((prev) => {
+          if (prev <= 1) {
+            sessionStorage.removeItem('auth_lockout_until');
+            return 0;
+          }
+          return prev - 1;
+        });
+      }, 1000);
+    }
+    return () => clearTimeout(timer);
+  }, [lockoutSeconds]);
+
+  const formatLockout = (totalSecs) => {
+    const m = Math.floor(totalSecs / 60);
+    const s = totalSecs % 60;
+    return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+  };
 
   // Forgot Password State
   const [isForgotPassword, setIsForgotPassword] = useState(false);
@@ -100,6 +133,14 @@ export default function LoginPage({ onNavigateRegister }) {
             localStorage.setItem('user', JSON.stringify(res.data.user));
             window.location.reload();
           }
+        } else if (res.data.status === 'REJECTED' || res.data.locked_out) {
+          clearInterval(pollInterval);
+          setApprovalStatus('REJECTED');
+          setTrustedDevicePolling(false);
+          const secs = res.data.remaining_seconds || 1200;
+          setLockoutSeconds(secs);
+          sessionStorage.setItem('auth_lockout_until', new Date(Date.now() + secs * 1000).toISOString());
+          setError(res.data.message || 'Bạn đã bị từ chối đăng nhập từ thiết bị tin cậy, đợi 20 phút để vào lại.');
         } else if (res.data.status === 'EXPIRED') {
           clearInterval(pollInterval);
           setApprovalStatus('EXPIRED');
@@ -142,6 +183,11 @@ export default function LoginPage({ onNavigateRegister }) {
       return;
     }
 
+    if (lockoutSeconds > 0) {
+      setError('Bạn đã bị từ chối đăng nhập từ thiết bị tin cậy, đợi 20 phút để vào lại.');
+      return;
+    }
+
     setLoading(true);
     setError('');
     setPendingNotice(null);
@@ -164,7 +210,12 @@ export default function LoginPage({ onNavigateRegister }) {
         }
       }
     } catch (err) {
-      if (err.response?.data?.status === 'PENDING_APPROVAL') {
+      if (err.response?.data?.locked_out || err.response?.data?.remaining_seconds) {
+        const secs = err.response.data.remaining_seconds || 1200;
+        setLockoutSeconds(secs);
+        sessionStorage.setItem('auth_lockout_until', new Date(Date.now() + secs * 1000).toISOString());
+        setError(err.response.data.message || 'Bạn đã bị từ chối đăng nhập từ thiết bị tin cậy, đợi 20 phút để vào lại.');
+      } else if (err.response?.data?.status === 'PENDING_APPROVAL') {
         setPendingNotice(err.response.data.message);
       } else {
         setError(err.response?.data?.message || err.message || 'Đăng nhập không thành công.');
@@ -335,6 +386,8 @@ export default function LoginPage({ onNavigateRegister }) {
                   <div className="w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin" />
                 ) : approvalStatus === 'APPROVED' ? (
                   <CheckCircle2 className="w-8 h-8 text-green-600" />
+                ) : approvalStatus === 'REJECTED' ? (
+                  <Clock className="w-8 h-8 text-red-600 animate-pulse" />
                 ) : (
                   <AlertCircle className="w-8 h-8 text-red-600" />
                 )}
@@ -342,6 +395,7 @@ export default function LoginPage({ onNavigateRegister }) {
               <h3 className="text-lg font-black text-slate-900 dark:text-white">
                 {approvalStatus === 'WAITING' ? '⏳ Đang chờ phê duyệt...' :
                  approvalStatus === 'APPROVED' ? '✅ Đã được chấp thuận!' :
+                 approvalStatus === 'REJECTED' ? '⛔ Bị từ chối đăng nhập' :
                  '⏰ Yêu cầu đã hết hạn'}
               </h3>
               {approvalStatus === 'WAITING' && (
@@ -355,6 +409,20 @@ export default function LoginPage({ onNavigateRegister }) {
                     🌐 IP: <strong>{trustedDeviceChallenge.device_info?.ip_address || 'N/A'}</strong>
                   </div>
                 </>
+              )}
+              {approvalStatus === 'REJECTED' && (
+                <div className="p-4 bg-red-50 dark:bg-red-950/40 rounded-2xl border-2 border-red-500/50 space-y-2 text-center">
+                  <p className="text-xs font-bold text-red-700 dark:text-red-300">
+                    Bạn đã bị từ chối đăng nhập từ thiết bị tin cậy, đợi 20 phút để vào lại.
+                  </p>
+                  <div className="inline-flex items-center space-x-2 px-3.5 py-1.5 rounded-full bg-red-600 text-white font-mono font-black text-base shadow-sm">
+                    <span>⏳</span>
+                    <span>{formatLockout(lockoutSeconds)}</span>
+                  </div>
+                  <p className="text-[10px] text-slate-400 dark:text-slate-500">
+                    Vui lòng đợi hết thời gian để thử đăng nhập lại.
+                  </p>
+                </div>
               )}
               {approvalStatus === 'EXPIRED' && (
                 <button
@@ -473,6 +541,27 @@ export default function LoginPage({ onNavigateRegister }) {
           ) : !isForgotPassword ? (
             /* Standard Login Form */
             <form onSubmit={handleSubmit} className="space-y-4">
+              {lockoutSeconds > 0 && (
+                <div className="p-4 bg-red-50 dark:bg-red-950/40 rounded-2xl border-2 border-red-500/50 text-center space-y-2 animate-in fade-in">
+                  <div className="w-10 h-10 rounded-full bg-red-100 dark:bg-red-900/60 text-red-600 dark:text-red-400 flex items-center justify-center mx-auto shadow-sm">
+                    <Clock className="w-5 h-5 animate-pulse" />
+                  </div>
+                  <h4 className="text-xs font-black text-red-700 dark:text-red-300 uppercase tracking-wider">
+                    Thiết Bị Tạm Thời Bị Khóa
+                  </h4>
+                  <p className="text-xs font-bold text-slate-800 dark:text-slate-200 leading-relaxed">
+                    Bạn đã bị từ chối đăng nhập từ thiết bị tin cậy, đợi 20 phút để vào lại.
+                  </p>
+                  <div className="inline-flex items-center space-x-2 px-4 py-1.5 rounded-full bg-red-600 text-white font-mono font-black text-base shadow-sm">
+                    <span>⏳</span>
+                    <span>{formatLockout(lockoutSeconds)}</span>
+                  </div>
+                  <p className="text-[10px] text-slate-400 dark:text-slate-500">
+                    Nút đăng nhập sẽ tự động mở lại khi đồng hồ đếm ngược kết thúc.
+                  </p>
+                </div>
+              )}
+
               {revokedNotice && (
                 <div className="p-3.5 bg-red-50 text-red-800 text-xs rounded-2xl border border-red-200 flex items-start space-x-2 font-bold animate-in fade-in">
                   <AlertCircle className="w-4 h-4 text-red-600 flex-shrink-0 mt-0.5" />
@@ -480,7 +569,7 @@ export default function LoginPage({ onNavigateRegister }) {
                 </div>
               )}
 
-              {error && (
+              {error && !lockoutSeconds && (
                 <div className="p-3 bg-red-50 text-red-700 text-xs rounded-xl border border-red-200 flex items-start">
                   <AlertCircle className="w-4 h-4 mr-2 flex-shrink-0 mt-0.5" />
                   <span>{error}</span>
@@ -550,11 +639,25 @@ export default function LoginPage({ onNavigateRegister }) {
 
               <button
                 type="submit"
-                disabled={loading}
+                disabled={loading || lockoutSeconds > 0}
                 className="w-full mt-2 flex items-center justify-center px-5 py-3 rounded-xl text-sm font-bold text-white bg-gradient-to-r from-red-600 to-red-500 hover:from-red-700 hover:to-red-600 shadow-lg shadow-red-200 active:scale-98 transition-all disabled:opacity-50"
               >
-                <LogIn className="w-4 h-4 mr-2" />
-                {loading ? 'Đang Đăng Nhập...' : 'Đăng Nhập'}
+                {lockoutSeconds > 0 ? (
+                  <>
+                    <Clock className="w-4 h-4 mr-2 animate-pulse" />
+                    <span>Đợi {formatLockout(lockoutSeconds)} để vào lại</span>
+                  </>
+                ) : loading ? (
+                  <>
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    <span>Đang Đăng Nhập...</span>
+                  </>
+                ) : (
+                  <>
+                    <LogIn className="w-4 h-4 mr-2" />
+                    <span>Đăng Nhập</span>
+                  </>
+                )}
               </button>
             </form>
           ) : (

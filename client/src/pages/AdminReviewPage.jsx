@@ -3,6 +3,7 @@ import api from '../services/api';
 import DepartmentBadge from '../components/DepartmentBadge';
 import StatusBadge from '../components/StatusBadge';
 import ConfirmReviewModal from '../components/ConfirmReviewModal';
+import UserAvatar from '../components/UserAvatar';
 import { 
   ShieldCheck, 
   Search, 
@@ -14,7 +15,9 @@ import {
   Calendar,
   ExternalLink,
   RefreshCw,
-  Images
+  Images,
+  FileText,
+  MessageSquare
 } from 'lucide-react';
 
 export default function AdminReviewPage() {
@@ -210,81 +213,115 @@ export default function AdminReviewPage() {
           {submissions.map((sub) => (
             <div
               key={sub.id}
-              className={`bg-white rounded-2xl border shadow-sm hover:shadow-md transition-all overflow-hidden flex flex-col justify-between ${
-                sub.status === 'PENDING' ? 'border-blue-300 ring-2 ring-blue-50' : 'border-slate-200'
+              className={`bg-white dark:bg-slate-900 rounded-3xl border shadow-sm hover:shadow-xl hover:-translate-y-0.5 transition-all duration-200 overflow-hidden flex flex-col justify-between ${
+                sub.status === 'PENDING' 
+                  ? 'border-blue-400/80 dark:border-blue-500/80 ring-2 ring-blue-500/10' 
+                  : 'border-slate-200 dark:border-slate-800'
               }`}
             >
               <div>
-                {/* Header */}
-                <div className="p-4 border-b border-slate-100 flex items-center justify-between">
-                  <div className="flex items-center space-x-2">
-                    <DepartmentBadge name={sub.department_name} code={sub.department_code} size="sm" />
-                    {sub.is_makeup === 1 ? (
-                      <span className="text-[10px] font-bold uppercase px-2 py-0.5 rounded bg-amber-100 text-amber-800">
-                        Nộp bù (3 ngày)
-                      </span>
-                    ) : (
-                      <span className="text-[10px] font-bold uppercase px-2 py-0.5 rounded bg-green-100 text-green-800">
-                        Đúng hạn
-                      </span>
-                    )}
+                {/* 1. Header: Avatar + Full Name, Username, Department + Status Badges */}
+                <div className="p-4 border-b border-slate-100 dark:border-slate-800/80 bg-slate-50/50 dark:bg-slate-800/30">
+                  <div className="flex items-start justify-between gap-3">
+                    {/* Left: User Avatar & Info */}
+                    <div className="flex items-center space-x-3 min-w-0 flex-1">
+                      <div className="relative flex-shrink-0">
+                        <UserAvatar 
+                          user={{ full_name: sub.full_name, avatar_url: sub.avatar_url, username: sub.username }} 
+                          size="md" 
+                          className="w-12 h-12 rounded-full border-2 border-white dark:border-slate-700 shadow-md object-cover ring-2 ring-blue-500/20"
+                        />
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <h4 className="font-extrabold text-sm text-slate-900 dark:text-white truncate">
+                          {sub.full_name}
+                        </h4>
+                        <div className="flex items-center space-x-1.5 text-xs text-slate-500 dark:text-slate-400 truncate mt-0.5">
+                          <span className="font-semibold text-blue-600 dark:text-blue-400">@{sub.username}</span>
+                          <span>•</span>
+                          <DepartmentBadge name={sub.department_name} code={sub.department_code} size="xs" />
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Right: Badges */}
+                    <div className="flex flex-col items-end gap-1 flex-shrink-0">
+                      <StatusBadge status={sub.status} isMakeup={sub.is_makeup === 1} />
+                      {sub.is_makeup === 1 ? (
+                        <span className="text-[10px] font-black uppercase px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 dark:bg-amber-950/60 dark:text-amber-300 border border-amber-300 dark:border-amber-800">
+                          Nộp bù (3 ngày)
+                        </span>
+                      ) : (
+                        <span className="text-[10px] font-black uppercase px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800">
+                          Đúng hạn
+                        </span>
+                      )}
+                    </div>
                   </div>
-                  <StatusBadge status={sub.status} isMakeup={sub.is_makeup === 1} />
                 </div>
 
-                {/* Member & Task detail */}
-                <div className="p-4 space-y-2">
-                  <div>
-                    <h4 className="font-extrabold text-sm text-slate-900">{sub.full_name}</h4>
-                    <p className="text-xs text-slate-500">@{sub.username} • {sub.email}</p>
+                {/* 2. Member & Task detail */}
+                <div className="p-4 space-y-3">
+                  {/* Task detail */}
+                  <div className="p-2.5 bg-blue-50/60 dark:bg-blue-950/30 rounded-2xl border border-blue-100 dark:border-blue-900/60 text-xs">
+                    <div className="flex items-center space-x-1.5 text-blue-700 dark:text-blue-400 font-bold uppercase text-[10px] tracking-wider mb-0.5">
+                      <FileText className="w-3.5 h-3.5" />
+                      <span>Nhiệm vụ</span>
+                    </div>
+                    <p className="font-black text-slate-900 dark:text-white line-clamp-2 leading-relaxed">
+                      {sub.task_title}
+                    </p>
                   </div>
 
-                  <div className="p-2.5 bg-slate-50 rounded-xl border border-slate-100 text-xs">
-                    <span className="text-[10px] font-bold uppercase text-slate-400 block">Nhiệm vụ:</span>
-                    <p className="font-bold text-slate-800 line-clamp-1">{sub.task_title}</p>
-                  </div>
-
+                  {/* Lời nhắn (nếu có) */}
                   {sub.note && (
-                    <div className="p-2 bg-blue-50/60 rounded-xl border border-blue-100 text-xs text-blue-900">
-                      <span className="font-bold text-[10px] uppercase text-blue-600 block">Lời nhắn:</span>
-                      <p className="italic line-clamp-2">"{sub.note}"</p>
+                    <div className="p-2.5 bg-amber-50/50 dark:bg-amber-950/20 rounded-2xl border border-amber-200/60 dark:border-amber-900/40 text-xs">
+                      <div className="flex items-center space-x-1.5 text-amber-700 dark:text-amber-400 font-bold uppercase text-[10px] tracking-wider mb-0.5">
+                        <MessageSquare className="w-3.5 h-3.5" />
+                        <span>Lời nhắn</span>
+                      </div>
+                      <p className="text-slate-700 dark:text-slate-300 italic line-clamp-2 leading-relaxed">
+                        "{sub.note}"
+                      </p>
                     </div>
                   )}
 
-                  {/* Thumbnail */}
+                  {/* Ảnh minh chứng Thumbnail */}
                   <div
                     onClick={() => setActiveSubmission(sub)}
-                    className="relative cursor-pointer group rounded-xl overflow-hidden bg-slate-100 border border-slate-200 aspect-video flex items-center justify-center mt-2"
+                    className="relative cursor-pointer group rounded-2xl overflow-hidden bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 aspect-video flex items-center justify-center shadow-xs"
                   >
                     <img
                       src={sub.image_url}
-                      alt="Proof thumbnail"
-                      className="w-full h-full object-cover group-hover:scale-105 transition-transform"
+                      alt="Ảnh minh chứng"
+                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                     />
                     {sub.image_urls && sub.image_urls.length > 1 && (
-                      <span className="absolute top-2 right-2 bg-slate-900/80 backdrop-blur-xs text-white text-[11px] font-bold px-2 py-0.5 rounded-lg flex items-center shadow-sm z-10">
-                        <Images className="w-3 h-3 mr-1" /> {sub.image_urls.length} ảnh
+                      <span className="absolute top-2.5 right-2.5 bg-slate-900/85 backdrop-blur-md text-white text-[11px] font-black px-2.5 py-1 rounded-xl flex items-center shadow-lg border border-white/20 z-10">
+                        <Images className="w-3.5 h-3.5 mr-1 text-yellow-400" /> {sub.image_urls.length} ảnh
                       </span>
                     )}
-                    <div className="absolute inset-0 bg-slate-900/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white text-xs font-bold">
-                      <Eye className="w-4 h-4 mr-1.5" /> Bấm để xem & duyệt
+                    <div className="absolute inset-0 bg-slate-950/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white text-xs font-black backdrop-blur-2xs">
+                      <Eye className="w-4 h-4 mr-1.5 text-blue-400" /> Bấm để xem toàn bộ ảnh & duyệt
                     </div>
                   </div>
                 </div>
               </div>
 
-              {/* Actions Footer */}
-              <div className="p-4 bg-slate-50 border-t border-slate-100 flex items-center justify-between">
-                <span className="text-[11px] text-slate-400 flex items-center">
-                  <Clock className="w-3 h-3 mr-1" />
+              {/* 3. Actions Footer */}
+              <div className="p-3.5 bg-slate-50 dark:bg-slate-800/50 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between gap-2">
+                <span className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 flex items-center">
+                  <Clock className="w-3.5 h-3.5 mr-1 text-slate-400 flex-shrink-0" />
                   {new Date(sub.submitted_at).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })} • {new Date(sub.submitted_at).toLocaleDateString('vi-VN')}
                 </span>
 
                 <button
+                  type="button"
                   onClick={() => setActiveSubmission(sub)}
-                  className="px-3.5 py-1.5 rounded-xl text-xs font-bold text-white bg-slate-900 hover:bg-slate-800 transition-colors shadow-sm"
+                  className="px-4 py-2 rounded-xl text-xs font-black text-white bg-blue-600 hover:bg-blue-700 active:scale-95 transition-all shadow-md shadow-blue-500/20 flex items-center space-x-1.5"
                 >
-                  Xem & Duyệt
+                  <Eye className="w-3.5 h-3.5" />
+                  <span>Xem & Duyệt</span>
                 </button>
               </div>
             </div>

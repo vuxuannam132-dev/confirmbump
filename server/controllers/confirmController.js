@@ -183,7 +183,7 @@ async function getReviewQueue(req, res) {
 
     let query = `
       SELECT s.*, 
-             u.full_name, u.username, u.email, u.facebook_url, u.role as user_role,
+             u.full_name, u.username, u.email, u.facebook_url, u.role as user_role, u.avatar_url,
              d.name as department_name, d.code as department_code, d.color as department_color,
              t.title as task_title, t.platform as task_platform, t.post_url as task_post_url,
              t.deadline as task_deadline, t.makeup_deadline as task_makeup_deadline,

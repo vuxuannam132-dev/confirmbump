@@ -274,7 +274,7 @@ export default function Sidebar({ activeTab, setActiveTab, onOpenInstallAppModal
       {/* 3. MOBILE SLIDE-OVER DRAWER (Safe-area padded) */}
       {/* ========================================================================= */}
       {mobileDrawerOpen && (
-        <div className="lg:hidden fixed inset-0 z-50 flex">
+        <div className="lg:hidden fixed inset-0 z-[80] flex">
           {/* Backdrop */}
           <div 
             className="fixed inset-0 bg-black/60 backdrop-blur-xs transition-opacity animate-in fade-in"

@@ -38,10 +38,24 @@ async function verifyToken(req, res, next) {
       `, [user.id, deviceId]);
 
       if (!activeSession) {
+        let remainingSeconds = 1200;
+        try {
+          const lockout = await db.get(`
+            SELECT * FROM device_lockouts 
+            WHERE device_id = ? AND locked_until > CURRENT_TIMESTAMP 
+            ORDER BY locked_until DESC LIMIT 1
+          `, [deviceId]);
+          if (lockout) {
+            remainingSeconds = Math.max(1, Math.ceil((new Date(lockout.locked_until).getTime() - Date.now()) / 1000));
+          }
+        } catch (e) {}
+
         return res.status(401).json({
           success: false,
           code: 'SESSION_REVOKED',
-          message: 'Phiên đăng nhập trên thiết bị này đã bị thu hồi từ thiết bị khác. Vui lòng đăng nhập lại.'
+          locked_out: true,
+          remaining_seconds: remainingSeconds,
+          message: 'Bạn đã bị từ chối đăng nhập từ thiết bị tin cậy, đợi 20 phút để vào lại.'
         });
       }
 

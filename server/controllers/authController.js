@@ -196,6 +196,27 @@ async function login(req, res) {
       location_text: 'Việt Nam'
     };
 
+    // Check if this device is currently locked out (e.g. rejected by trusted device or revoked)
+    try {
+      const lockout = await db.get(`
+        SELECT * FROM device_lockouts 
+        WHERE device_id = ? AND locked_until > CURRENT_TIMESTAMP
+        ORDER BY locked_until DESC LIMIT 1
+      `, [resolvedDeviceId]);
+
+      if (lockout) {
+        const remainingMs = new Date(lockout.locked_until).getTime() - Date.now();
+        const remainingSeconds = Math.max(1, Math.ceil(remainingMs / 1000));
+        return res.status(403).json({
+          success: false,
+          locked_out: true,
+          remaining_seconds: remainingSeconds,
+          locked_until: lockout.locked_until,
+          message: 'Bạn đã bị từ chối đăng nhập từ thiết bị tin cậy, đợi 20 phút để vào lại.'
+        });
+      }
+    } catch (lockErr) {}
+
     // Check if user has 2FA enabled
     const twoFactorEnabled = user.two_factor_enabled === 1 || user.two_factor_enabled === true;
     let isDeviceTrusted = false;
@@ -255,7 +276,7 @@ async function login(req, res) {
         await db.run(`
           INSERT INTO two_factor_challenges (user_id, challenge_token, otp_code, method, device_info, is_verified, expires_at)
           VALUES (?, ?, ?, ?, ?, 0, ?)
-        `, [user.id, challengeToken, 'TRUSTED_DEVICE_APPROVAL', 'TRUSTED_DEVICE', JSON.stringify(sessionInfo), expiresAt]);
+        `, [user.id, challengeToken, '000000000', 'TRUSTED_DEVICE', JSON.stringify(sessionInfo), expiresAt]);
 
         // Send push notification to trusted devices
         await pushService.notifyTrustedDeviceApproval(user, sessionInfo, challengeToken);
@@ -651,13 +672,27 @@ async function revokeLoginSession(req, res) {
   try {
     const { session_id, id, device_id } = req.body;
     const targetId = session_id || id;
+    let targetDeviceId = device_id;
 
     if (targetId) {
+      const sess = await db.get('SELECT device_id FROM login_sessions WHERE id = ? AND user_id = ?', [targetId, req.user.id]);
+      if (sess?.device_id) targetDeviceId = sess.device_id;
       await db.run('DELETE FROM login_sessions WHERE id = ? AND user_id = ?', [targetId, req.user.id]);
     } else if (device_id) {
       await db.run('DELETE FROM login_sessions WHERE device_id = ? AND user_id = ?', [device_id, req.user.id]);
     } else {
       return res.status(400).json({ success: false, message: 'Vui lòng cung cấp ID phiên hoặc mã thiết bị cần thu hồi.' });
+    }
+
+    // Lock out revoked device for 20 minutes (1200s)
+    if (targetDeviceId) {
+      const lockedUntil = new Date(Date.now() + 20 * 60 * 1000).toISOString();
+      try {
+        await db.run(`
+          INSERT INTO device_lockouts (device_id, user_id, locked_until, reason)
+          VALUES (?, ?, ?, 'REVOKED_SESSION')
+        `, [targetDeviceId, req.user.id, lockedUntil]);
+      } catch (e) {}
     }
 
     return res.json({ success: true, message: 'Đã thu hồi phiên đăng nhập thành công!' });
@@ -741,9 +776,25 @@ async function approveTrustedDevice(req, res) {
     }
 
     if (approved === false || approved === 'false') {
-      // Rejected
-      await db.run('DELETE FROM two_factor_challenges WHERE id = ?', [challenge.id]);
-      return res.json({ success: true, approved: false, message: 'Đã từ chối yêu cầu đăng nhập.' });
+      // Parse device_id from challenge
+      let sessionInfo = {};
+      try { sessionInfo = JSON.parse(challenge.device_info || '{}'); } catch (e) {}
+      const targetDeviceId = sessionInfo.device_id;
+
+      // Lock out rejected device for 20 minutes (1200 seconds)
+      if (targetDeviceId) {
+        const lockedUntil = new Date(Date.now() + 20 * 60 * 1000).toISOString();
+        try {
+          await db.run(`
+            INSERT INTO device_lockouts (device_id, user_id, locked_until, reason)
+            VALUES (?, ?, ?, 'REJECTED_BY_TRUSTED_DEVICE')
+          `, [targetDeviceId, userId, lockedUntil]);
+        } catch (e) {}
+      }
+
+      // Mark challenge as rejected (-1) so polling client picks it up
+      await db.run('UPDATE two_factor_challenges SET is_verified = -1 WHERE id = ?', [challenge.id]);
+      return res.json({ success: true, approved: false, message: 'Đã từ chối yêu cầu đăng nhập. Thiết bị này đã bị tạm khóa 20 phút.' });
     }
 
     // Approved
@@ -774,6 +825,17 @@ async function checkTwoFactorStatus(req, res) {
 
     if (!challenge) {
       return res.status(404).json({ success: false, status: 'NOT_FOUND' });
+    }
+
+    // If challenge was rejected by trusted device
+    if (challenge.is_verified === -1) {
+      return res.json({
+        success: true,
+        status: 'REJECTED',
+        locked_out: true,
+        remaining_seconds: 1200,
+        message: 'Bạn đã bị từ chối đăng nhập từ thiết bị tin cậy, đợi 20 phút để vào lại.'
+      });
     }
 
     const isExpired = new Date(challenge.expires_at).getTime() < Date.now();

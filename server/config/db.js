@@ -236,7 +236,7 @@ async function initDb() {
             id SERIAL PRIMARY KEY,
             user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
             challenge_token VARCHAR(100) UNIQUE NOT NULL,
-            otp_code VARCHAR(10) NOT NULL,
+            otp_code VARCHAR(100) NOT NULL,
             method VARCHAR(50) DEFAULT 'EMAIL',
             device_info TEXT,
             is_verified INTEGER DEFAULT 0,
@@ -441,14 +441,47 @@ async function initDb() {
         }
       }
 
-      // Optional indexes for performance
+      // Optional indexes & migrations for security and performance
       try {
         if (isPg) {
+          // Alter two_factor_challenges.otp_code to VARCHAR(100) if it was VARCHAR(10)
+          try {
+            await db.exec(`ALTER TABLE two_factor_challenges ALTER COLUMN otp_code TYPE VARCHAR(100);`);
+          } catch (e) {}
+
+          // Create device_lockouts table for rejected or revoked devices (20-minute countdown)
+          await db.exec(`
+            CREATE TABLE IF NOT EXISTS device_lockouts (
+              id SERIAL PRIMARY KEY,
+              device_id VARCHAR(100) NOT NULL,
+              user_id INTEGER,
+              locked_until TIMESTAMPTZ NOT NULL,
+              reason VARCHAR(100),
+              created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
+            );
+          `);
+
           await db.exec(`CREATE INDEX IF NOT EXISTS idx_login_sessions_user_id ON login_sessions(user_id);`);
           await db.exec(`CREATE INDEX IF NOT EXISTS idx_2fa_challenges_token ON two_factor_challenges(challenge_token);`);
+          await db.exec(`CREATE INDEX IF NOT EXISTS idx_device_lockouts ON device_lockouts(device_id, locked_until);`);
         } else {
+          // SQLite device_lockouts
+          sqliteDb.exec(`
+            CREATE TABLE IF NOT EXISTS device_lockouts (
+              id INTEGER PRIMARY KEY AUTOINCREMENT,
+              device_id TEXT NOT NULL,
+              user_id INTEGER,
+              locked_until DATETIME NOT NULL,
+              reason TEXT,
+              created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+            );
+          `);
+
           sqliteDb.exec(`CREATE INDEX IF NOT EXISTS idx_login_sessions_user_id ON login_sessions(user_id);`);
           sqliteDb.exec(`CREATE INDEX IF NOT EXISTS idx_2fa_challenges_token ON two_factor_challenges(challenge_token);`);
+          try {
+            sqliteDb.exec(`CREATE INDEX IF NOT EXISTS idx_device_lockouts ON device_lockouts(device_id, locked_until);`);
+          } catch (e) {}
         }
       } catch (idxErr) {
         // Ignore index errors
