@@ -292,8 +292,8 @@ async function notifyNewDeviceLogin(user, sessionInfo = {}) {
   const deviceName = sessionInfo.device_name || 'Thiết bị mới';
   const ipAddress = sessionInfo.ip_address || 'N/A';
   const title = '⚠️ Cảnh báo: Đăng nhập từ thiết bị mới!';
-  const body = `Tài khoản ${user.username} vừa đăng nhập trên ${deviceName} (IP: ${ipAddress}). Nếu không phải bạn, hãy đổi mật khẩu ngay!`;
-  const url = '/';
+  const body = `Tài khoản ${user.username} vừa đăng nhập trên ${deviceName} (IP: ${ipAddress}). Hãy kiểm tra lịch sử thiết bị và bảo mật 2FA ngay!`;
+  const url = '/?tab=settings&focus=security';
 
   // 1. Record in-app notification
   await recordNotification({
@@ -314,7 +314,7 @@ async function notifyNewDeviceLogin(user, sessionInfo = {}) {
       icon: '/icon-192.png',
       badge: '/icon-192.png',
       tag: `new-device-${Date.now()}`,
-      data: { url, type: 'NEW_DEVICE_LOGIN' }
+      data: { url, tab: 'settings', section: 'security', type: 'NEW_DEVICE_LOGIN' }
     };
     return await dispatchPushToSubscriptions(subs, payload);
   } catch (err) {
@@ -330,7 +330,7 @@ async function notifyLoginSuccess(user, sessionInfo = {}) {
   const deviceName = sessionInfo.device_name || 'thiết bị của bạn';
   const title = '🔔 Đăng nhập thành công';
   const body = `Tài khoản ${user.username} vừa đăng nhập thành công trên ${deviceName}.`;
-  const url = '/';
+  const url = '/?tab=settings&focus=security';
 
   await recordNotification({
     userId: user.id,
@@ -349,7 +349,7 @@ async function notifyLoginSuccess(user, sessionInfo = {}) {
       icon: '/icon-192.png',
       badge: '/icon-192.png',
       tag: `login-success-${Date.now()}`,
-      data: { url }
+      data: { url, tab: 'settings', section: 'security', type: 'LOGIN_SUCCESS' }
     };
     return await dispatchPushToSubscriptions(subs, payload);
   } catch (err) {
@@ -365,7 +365,7 @@ async function notifyTwoFactorPrompt(user, sessionInfo = {}) {
   const deviceName = sessionInfo.device_name || 'thiết bị';
   const title = '🔐 Yêu cầu xác thực 2FA';
   const body = `Có yêu cầu đăng nhập trên ${deviceName}. Vui lòng kiểm tra mã xác thực để tiếp tục.`;
-  const url = '/';
+  const url = '/?tab=settings&focus=security';
 
   await recordNotification({
     userId: user.id,
@@ -384,7 +384,7 @@ async function notifyTwoFactorPrompt(user, sessionInfo = {}) {
       icon: '/icon-192.png',
       badge: '/icon-192.png',
       tag: `2fa-prompt-${Date.now()}`,
-      data: { url, type: '2FA_PROMPT' }
+      data: { url, tab: 'settings', section: 'security', type: '2FA_PROMPT' }
     };
     return await dispatchPushToSubscriptions(subs, payload);
   } catch (err) {

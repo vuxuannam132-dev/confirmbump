@@ -62,6 +62,11 @@ api.interceptors.response.use(
     if (error.response && error.response.status === 401) {
       localStorage.removeItem('token');
       localStorage.removeItem('user');
+      const errorMsg = error.response.data?.message || 'Phiên đăng nhập đã hết hạn hoặc bị thu hồi từ thiết bị khác.';
+      try {
+        sessionStorage.setItem('auth_logout_reason', errorMsg);
+        window.dispatchEvent(new CustomEvent('auth:session_revoked', { detail: { message: errorMsg } }));
+      } catch (e) {}
       if (window.location.pathname !== '/login' && window.location.pathname !== '/register') {
         window.location.href = '/login';
       }

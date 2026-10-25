@@ -114,6 +114,26 @@ export default function SettingsPage() {
   useEffect(() => {
     checkPushStatus();
     fetchSessions();
+
+    const checkFocus = () => {
+      const params = new URLSearchParams(window.location.search);
+      const focus = params.get('focus');
+      const hash = window.location.hash;
+      if (focus === 'security' || hash === '#security' || focus === 'devices') {
+        setTimeout(() => {
+          const target = document.getElementById('device-tracking-section') || document.getElementById('security-section');
+          if (target) {
+            target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            target.classList.add('ring-4', 'ring-red-500/60', 'transition-all');
+            setTimeout(() => target.classList.remove('ring-4', 'ring-red-500/60'), 3500);
+          }
+        }, 350);
+      }
+    };
+
+    checkFocus();
+    window.addEventListener('hashchange', checkFocus);
+    return () => window.removeEventListener('hashchange', checkFocus);
   }, []);
 
   useEffect(() => {
@@ -588,7 +608,7 @@ export default function SettingsPage() {
       {/* ========================================================================= */}
       {/* 2. BẢO MẬT & XÁC THỰC 2 LỚP (2FA) */}
       {/* ========================================================================= */}
-      <div className="bg-white dark:bg-slate-900 rounded-3xl p-4 sm:p-6 border border-slate-200/80 dark:border-slate-800 shadow-xs space-y-4">
+      <div id="security-section" className="bg-white dark:bg-slate-900 rounded-3xl p-4 sm:p-6 border border-slate-200/80 dark:border-slate-800 shadow-xs space-y-4 scroll-mt-6">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-100 dark:border-slate-800">
           <div className="flex items-center space-x-2.5">
             <div className="w-9 h-9 rounded-xl bg-blue-100 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400 flex items-center justify-center flex-shrink-0">
@@ -707,7 +727,7 @@ export default function SettingsPage() {
       {/* ========================================================================= */}
       {/* 3. THEO DÕI THIẾT BỊ & LỊCH SỬ ĐĂNG NHẬP */}
       {/* ========================================================================= */}
-      <div className="bg-white dark:bg-slate-900 rounded-3xl p-4 sm:p-6 border border-slate-200/80 dark:border-slate-800 shadow-xs space-y-4">
+      <div id="device-tracking-section" className="bg-white dark:bg-slate-900 rounded-3xl p-4 sm:p-6 border border-slate-200/80 dark:border-slate-800 shadow-xs space-y-4 scroll-mt-6">
         <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
           <div className="flex items-center space-x-2.5">
             <div className="w-9 h-9 rounded-xl bg-indigo-100 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 flex items-center justify-center flex-shrink-0">

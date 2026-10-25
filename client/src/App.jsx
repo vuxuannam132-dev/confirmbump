@@ -19,8 +19,53 @@ import { Smartphone } from 'lucide-react';
 function AppContent() {
   const { user, loading, isAdminTong, isAdminCap2, isReviewer, canReview, canTrackProgress } = useAuth();
   const [authView, setAuthView] = useState('login'); // 'login' or 'register'
-  const [activeTab, setActiveTab] = useState('tasks'); // 'tasks', 'history', 'progress', 'review', 'admin-tasks', 'users', 'settings'
+  const [activeTab, setActiveTab] = useState(() => {
+    const params = new URLSearchParams(window.location.search);
+    return params.get('tab') || 'tasks';
+  });
   const [showInstallGuide, setShowInstallGuide] = useState(false);
+
+  // Handle URL navigation and Service Worker push click navigation
+  React.useEffect(() => {
+    const handleUrlNav = () => {
+      const params = new URLSearchParams(window.location.search);
+      const tabParam = params.get('tab');
+      if (tabParam) {
+        setActiveTab(tabParam);
+      }
+    };
+
+    handleUrlNav();
+    window.addEventListener('popstate', handleUrlNav);
+
+    const handleSwMessage = (e) => {
+      if (e.data?.type === 'NAVIGATE_TAB') {
+        const tab = e.data.tab || 'settings';
+        setActiveTab(tab);
+        if (e.data.section === 'security') {
+          setTimeout(() => {
+            const el = document.getElementById('device-tracking-section') || document.getElementById('security-section');
+            if (el) {
+              el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+              el.classList.add('ring-4', 'ring-red-500/60', 'transition-all');
+              setTimeout(() => el.classList.remove('ring-4', 'ring-red-500/60'), 3000);
+            }
+          }, 400);
+        }
+      }
+    };
+
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.addEventListener('message', handleSwMessage);
+    }
+
+    return () => {
+      window.removeEventListener('popstate', handleUrlNav);
+      if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.removeEventListener('message', handleSwMessage);
+      }
+    };
+  }, []);
 
   if (loading) {
     return (

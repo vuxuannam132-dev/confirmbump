@@ -24,6 +24,48 @@ export function AuthProvider({ children }) {
           logout();
         })
         .finally(() => setLoading(false));
+
+      // Active session heartbeat: poll every 12 seconds to ensure revoked sessions are kicked out immediately
+      const checkSession = async () => {
+        try {
+          const res = await api.get('/auth/me');
+          if (res.data?.success && res.data.user) {
+            setUser(res.data.user);
+            localStorage.setItem('user', JSON.stringify(res.data.user));
+          }
+        } catch (err) {
+          if (err.response?.status === 401) {
+            logout();
+          }
+        }
+      };
+
+      const interval = setInterval(checkSession, 12000);
+
+      const handleVisibility = () => {
+        if (document.visibilityState === 'visible') {
+          checkSession();
+        }
+      };
+
+      const handleFocus = () => {
+        checkSession();
+      };
+
+      const handleRevoked = () => {
+        logout();
+      };
+
+      document.addEventListener('visibilitychange', handleVisibility);
+      window.addEventListener('focus', handleFocus);
+      window.addEventListener('auth:session_revoked', handleRevoked);
+
+      return () => {
+        clearInterval(interval);
+        document.removeEventListener('visibilitychange', handleVisibility);
+        window.removeEventListener('focus', handleFocus);
+        window.removeEventListener('auth:session_revoked', handleRevoked);
+      };
     } else {
       setLoading(false);
     }

@@ -188,10 +188,31 @@ export default function NotificationBell({ onNavigateTab }) {
     setIsOpen(false);
 
     if (onNavigateTab) {
-      if (notif.type === 'NEW_TASK') onNavigateTab('tasks');
-      else if (notif.type === 'NEW_CONFIRM') onNavigateTab('review');
-      else if (notif.type === 'CONFIRM_APPROVED' || notif.type === 'CONFIRM_REJECTED') onNavigateTab('history');
-      else onNavigateTab('tasks');
+      if (notif.type === 'NEW_TASK') {
+        onNavigateTab('tasks');
+      } else if (notif.type === 'NEW_CONFIRM') {
+        onNavigateTab('review');
+      } else if (notif.type === 'CONFIRM_APPROVED' || notif.type === 'CONFIRM_REJECTED') {
+        onNavigateTab('history');
+      } else if (
+        notif.type === 'NEW_DEVICE_LOGIN' || 
+        notif.type === '2FA_PROMPT' || 
+        notif.type === 'LOGIN_SUCCESS' ||
+        notif.link?.includes('tab=settings') ||
+        notif.link?.includes('security')
+      ) {
+        onNavigateTab('settings');
+        setTimeout(() => {
+          const el = document.getElementById('device-tracking-section') || document.getElementById('security-section');
+          if (el) {
+            el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            el.classList.add('ring-4', 'ring-red-500/60', 'transition-all');
+            setTimeout(() => el.classList.remove('ring-4', 'ring-red-500/60'), 3000);
+          }
+        }, 350);
+      } else {
+        onNavigateTab('tasks');
+      }
     }
   };
 
@@ -207,6 +228,12 @@ export default function NotificationBell({ onNavigateTab }) {
         return <CheckCircle2 className="w-4 h-4 text-green-500 flex-shrink-0" />;
       case 'CONFIRM_REJECTED':
         return <XCircle className="w-4 h-4 text-red-500 flex-shrink-0" />;
+      case 'NEW_DEVICE_LOGIN':
+        return <AlertTriangle className="w-4 h-4 text-amber-500 flex-shrink-0" />;
+      case '2FA_PROMPT':
+        return <ShieldCheck className="w-4 h-4 text-purple-500 flex-shrink-0" />;
+      case 'LOGIN_SUCCESS':
+        return <CheckCircle2 className="w-4 h-4 text-blue-500 flex-shrink-0" />;
       default:
         return <Bell className="w-4 h-4 text-slate-500 flex-shrink-0" />;
     }
@@ -249,7 +276,23 @@ export default function NotificationBell({ onNavigateTab }) {
       {foregroundToast && (
         <div 
           onClick={() => {
-            if (onNavigateTab) onNavigateTab('tasks');
+            const url = foregroundToast.url || '';
+            const isSecurity = foregroundToast.title?.includes('Đăng nhập') || foregroundToast.title?.includes('2FA') || url.includes('settings');
+            if (onNavigateTab) {
+              if (isSecurity) {
+                onNavigateTab('settings');
+                setTimeout(() => {
+                  const el = document.getElementById('device-tracking-section') || document.getElementById('security-section');
+                  if (el) {
+                    el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    el.classList.add('ring-4', 'ring-red-500/60', 'transition-all');
+                    setTimeout(() => el.classList.remove('ring-4', 'ring-red-500/60'), 3000);
+                  }
+                }, 350);
+              } else {
+                onNavigateTab('tasks');
+              }
+            }
             setForegroundToast(null);
           }}
           className="fixed top-3 inset-x-3 sm:inset-x-auto sm:right-6 sm:w-96 z-[70] p-3.5 bg-slate-900/95 text-white rounded-2xl shadow-2xl border border-blue-500/60 backdrop-blur-md flex items-start space-x-3 cursor-pointer animate-in slide-in-from-top duration-300 select-none"

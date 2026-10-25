@@ -28,6 +28,14 @@ export default function LoginPage({ onNavigateRegister }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [pendingNotice, setPendingNotice] = useState(null);
+  const [revokedNotice, setRevokedNotice] = useState(() => {
+    const reason = sessionStorage.getItem('auth_logout_reason');
+    if (reason) {
+      sessionStorage.removeItem('auth_logout_reason');
+      return reason;
+    }
+    return null;
+  });
 
   // 2FA Challenge State
   const [twoFactorChallenge, setTwoFactorChallenge] = useState(null);
@@ -296,6 +304,13 @@ export default function LoginPage({ onNavigateRegister }) {
           ) : !isForgotPassword ? (
             /* Standard Login Form */
             <form onSubmit={handleSubmit} className="space-y-4">
+              {revokedNotice && (
+                <div className="p-3.5 bg-red-50 text-red-800 text-xs rounded-2xl border border-red-200 flex items-start space-x-2 font-bold animate-in fade-in">
+                  <AlertCircle className="w-4 h-4 text-red-600 flex-shrink-0 mt-0.5" />
+                  <span>{revokedNotice}</span>
+                </div>
+              )}
+
               {error && (
                 <div className="p-3 bg-red-50 text-red-700 text-xs rounded-xl border border-red-200 flex items-start">
                   <AlertCircle className="w-4 h-4 mr-2 flex-shrink-0 mt-0.5" />

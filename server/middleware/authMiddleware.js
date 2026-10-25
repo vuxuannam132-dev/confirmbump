@@ -29,7 +29,30 @@ async function verifyToken(req, res, next) {
       return res.status(403).json({ success: false, message: 'Tài khoản của bạn chưa được Admin Tổng phê duyệt hoặc đã bị khóa.' });
     }
 
+    // Check device session validity in login_sessions
+    const deviceId = (req.headers['x-device-id'] || decoded.device_id || '').trim();
+    if (deviceId) {
+      const activeSession = await db.get(`
+        SELECT id, is_trusted FROM login_sessions 
+        WHERE user_id = ? AND device_id = ?
+      `, [user.id, deviceId]);
+
+      if (!activeSession) {
+        return res.status(401).json({
+          success: false,
+          code: 'SESSION_REVOKED',
+          message: 'Phiên đăng nhập trên thiết bị này đã bị thu hồi từ thiết bị khác. Vui lòng đăng nhập lại.'
+        });
+      }
+
+      // Update last seen for active session
+      try {
+        await db.run('UPDATE login_sessions SET last_seen = CURRENT_TIMESTAMP, is_online = 1 WHERE id = ?', [activeSession.id]);
+      } catch (e) {}
+    }
+
     req.user = user;
+    req.deviceId = deviceId;
     next();
   } catch (err) {
     return res.status(401).json({ success: false, message: 'Phiên đăng nhập đã hết hạn hoặc không hợp lệ.' });

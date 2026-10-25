@@ -275,7 +275,7 @@ async function login(req, res) {
 
     // Sign JWT
     const token = jwt.sign(
-      { id: user.id, username: user.username, role: user.role },
+      { id: user.id, username: user.username, role: user.role, device_id: resolvedDeviceId },
       JWT_SECRET,
       { expiresIn: '7d' }
     );
@@ -528,7 +528,7 @@ async function verifyTwoFactor(req, res) {
     };
 
     const token = jwt.sign(
-      { id: user.id, username: user.username, role: user.role },
+      { id: user.id, username: user.username, role: user.role, device_id: deviceId },
       JWT_SECRET,
       { expiresIn: '7d' }
     );

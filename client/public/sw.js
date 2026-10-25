@@ -69,18 +69,34 @@ self.addEventListener('push', (event) => {
 // Notification click event
 self.addEventListener('notificationclick', (event) => {
   event.notification.close();
-  const targetUrl = event.notification.data?.url || '/';
+  const notifData = event.notification.data || {};
+  const targetUrl = notifData.url || '/?tab=settings&focus=security';
+  const targetTab = notifData.tab || 'settings';
+  const targetSection = notifData.section || 'security';
 
   event.waitUntil(
     self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientList) => {
+      // If window/tab already open, focus it and tell React to switch tab immediately
       for (const client of clientList) {
         if ('focus' in client) {
-          if ('navigate' in client && targetUrl && targetUrl !== '/') {
-            client.navigate(targetUrl);
+          try {
+            client.postMessage({
+              type: 'NAVIGATE_TAB',
+              tab: targetTab,
+              section: targetSection,
+              url: targetUrl
+            });
+          } catch (e) {}
+
+          if ('navigate' in client && targetUrl) {
+            try {
+              client.navigate(targetUrl);
+            } catch (e) {}
           }
           return client.focus();
         }
       }
+      // If app is not open at all, open window with the target URL
       if (self.clients.openWindow) {
         return self.clients.openWindow(targetUrl);
       }
