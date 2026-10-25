@@ -53,11 +53,13 @@ self.addEventListener('push', (event) => {
   const broadcastPromise = self.clients.matchAll({ type: 'window', includeUncontrolled: true })
     .then((clientList) => {
       clientList.forEach((client) => {
+        const isApproval = data.data?.type === 'TRUSTED_DEVICE_APPROVAL';
         client.postMessage({
-          type: 'PUSH_NOTIFICATION_RECEIVED',
+          type: isApproval ? 'TRUSTED_DEVICE_APPROVAL_REQUEST' : 'PUSH_NOTIFICATION_RECEIVED',
           title: title,
           body: body,
-          url: data.url || '/'
+          url: data.url || '/',
+          ...(data.data || {})
         });
       });
     })
@@ -70,6 +72,7 @@ self.addEventListener('push', (event) => {
 self.addEventListener('notificationclick', (event) => {
   event.notification.close();
   const notifData = event.notification.data || {};
+  const isApproval = notifData.type === 'TRUSTED_DEVICE_APPROVAL';
   const targetUrl = notifData.url || '/?tab=settings&focus=security';
   const targetTab = notifData.tab || 'settings';
   const targetSection = notifData.section || 'security';
@@ -81,10 +84,11 @@ self.addEventListener('notificationclick', (event) => {
         if ('focus' in client) {
           try {
             client.postMessage({
-              type: 'NAVIGATE_TAB',
+              type: isApproval ? 'TRUSTED_DEVICE_APPROVAL_REQUEST' : 'NAVIGATE_TAB',
               tab: targetTab,
               section: targetSection,
-              url: targetUrl
+              url: targetUrl,
+              ...notifData
             });
           } catch (e) {}
 

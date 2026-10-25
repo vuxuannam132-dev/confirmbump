@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { ThemeProvider } from './context/ThemeContext';
+import api from './services/api';
 import Sidebar from './components/Sidebar';
 import BottomNavBar from './components/BottomNavBar';
 import LoginPage from './pages/LoginPage';
@@ -25,6 +26,8 @@ function AppContent() {
     return params.get('tab') || 'tasks';
   });
   const [showInstallGuide, setShowInstallGuide] = useState(false);
+  const [pendingApprovalData, setPendingApprovalData] = useState(null);
+  const [approvingDevice, setApprovingDevice] = useState(false);
 
   // Handle URL navigation and Service Worker push click navigation
   React.useEffect(() => {
@@ -40,6 +43,10 @@ function AppContent() {
     window.addEventListener('popstate', handleUrlNav);
 
     const handleSwMessage = (e) => {
+      if (e.data?.type === 'TRUSTED_DEVICE_APPROVAL_REQUEST' || e.data?.type === 'TRUSTED_DEVICE_APPROVAL') {
+        setPendingApprovalData(e.data);
+      }
+
       if (e.data?.type === 'NAVIGATE_TAB') {
         const tab = e.data.tab || 'settings';
         setActiveTab(tab);
@@ -145,6 +152,71 @@ function AppContent() {
 
       {/* Push Notification Permission Popup Modal */}
       <NotifyPermissionModal />
+
+      {/* In-app Trusted Device 2FA Approval Modal */}
+      {pendingApprovalData && (
+        <div className="fixed inset-0 z-[100] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl p-6 w-full max-w-sm border border-slate-200 dark:border-slate-800 animate-in fade-in zoom-in-95">
+            <div className="text-center mb-4">
+              <div className="w-14 h-14 rounded-2xl bg-amber-100 dark:bg-amber-950 flex items-center justify-center mx-auto mb-3">
+                <span className="text-2xl">⚠️</span>
+              </div>
+              <h3 className="font-black text-lg text-slate-900 dark:text-white">Yêu Cầu Đăng Nhập Mới</h3>
+              <p className="text-sm text-slate-600 dark:text-slate-400 mt-1">
+                Thiết bị lạ đang cố đăng nhập vào tài khoản của bạn
+              </p>
+            </div>
+            <div className="bg-slate-50 dark:bg-slate-800 rounded-xl p-3 mb-4 text-sm space-y-1">
+              <div className="flex justify-between">
+                <span className="text-slate-500">Thiết bị:</span>
+                <span className="font-bold text-slate-800 dark:text-white">{pendingApprovalData.device_name || 'Không xác định'}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-slate-500">IP:</span>
+                <span className="font-bold text-slate-800 dark:text-white">{pendingApprovalData.ip_address || 'N/A'}</span>
+              </div>
+            </div>
+            <div className="flex gap-3">
+              <button
+                type="button"
+                onClick={async () => {
+                  setApprovingDevice(true);
+                  try {
+                    await api.post('/auth/2fa/approve-device', {
+                      challenge_token: pendingApprovalData.challenge_token,
+                      approved: false
+                    });
+                  } catch (e) {}
+                  setPendingApprovalData(null);
+                  setApprovingDevice(false);
+                }}
+                disabled={approvingDevice}
+                className="flex-1 py-2.5 rounded-xl font-bold text-sm bg-slate-200 dark:bg-slate-700 text-slate-800 dark:text-white hover:bg-slate-300 dark:hover:bg-slate-600 active:scale-95 transition-all disabled:opacity-50"
+              >
+                Từ Chối
+              </button>
+              <button
+                type="button"
+                onClick={async () => {
+                  setApprovingDevice(true);
+                  try {
+                    await api.post('/auth/2fa/approve-device', {
+                      challenge_token: pendingApprovalData.challenge_token,
+                      approved: true
+                    });
+                  } catch (e) {}
+                  setPendingApprovalData(null);
+                  setApprovingDevice(false);
+                }}
+                disabled={approvingDevice}
+                className="flex-1 py-2.5 rounded-xl font-black text-sm bg-green-600 text-white hover:bg-green-700 active:scale-95 transition-all disabled:opacity-50"
+              >
+                {approvingDevice ? '...' : '✅ Chấp Thuận'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

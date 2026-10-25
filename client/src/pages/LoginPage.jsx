@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
-import api from '../services/api';
+import api, { getClientDeviceId, getClientDeviceName } from '../services/api';
 import { 
   Flame, 
   LogIn, 
@@ -96,6 +96,7 @@ export default function LoginPage({ onNavigateRegister }) {
           setTrustedDevicePolling(false);
           if (res.data.token && res.data.user) {
             localStorage.setItem('token', res.data.token);
+            localStorage.setItem('authToken', res.data.token);
             localStorage.setItem('user', JSON.stringify(res.data.user));
             window.location.reload();
           }
@@ -115,7 +116,6 @@ export default function LoginPage({ onNavigateRegister }) {
   const handleSetFirstTrusted = async () => {
     try {
       setLoading(true);
-      const { getClientDeviceId, getClientDeviceName } = await import('../services/api');
       const res = await api.post('/auth/2fa/set-first-trusted', {
         setup_token: trustedDeviceChallenge.setup_token,
         device_id: getClientDeviceId(),
@@ -124,6 +124,7 @@ export default function LoginPage({ onNavigateRegister }) {
 
       if (res.data.success && res.data.token && res.data.user) {
         localStorage.setItem('token', res.data.token);
+        localStorage.setItem('authToken', res.data.token);
         localStorage.setItem('user', JSON.stringify(res.data.user));
         window.location.reload();
       }
@@ -280,7 +281,99 @@ export default function LoginPage({ onNavigateRegister }) {
 
       <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md">
         <div className="bg-white py-8 px-6 sm:px-10 shadow-xl shadow-slate-200/60 rounded-3xl border border-slate-100">
-          {twoFactorChallenge ? (
+          {trustedDeviceChallenge && trustedDeviceChallenge.no_trusted_devices ? (
+            /* Case 1: Chưa có thiết bị tin cậy nào -> Đăng ký thiết bị hiện tại */
+            <div className="space-y-4">
+              <div className="text-center">
+                <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-amber-100 dark:bg-amber-950 mb-3">
+                  <ShieldCheck className="w-8 h-8 text-amber-600" />
+                </div>
+                <h3 className="text-lg font-black text-slate-900 dark:text-white">Thiết Lập 2FA - Thiết Bị Tin Cậy</h3>
+                <p className="text-sm text-slate-600 dark:text-slate-400 mt-2">
+                  Bạn đang dùng xác thực qua thiết bị tin cậy nhưng chưa đăng ký thiết bị nào.
+                  Đăng ký thiết bị này làm thiết bị tin cậy đầu tiên để tiếp tục.
+                </p>
+              </div>
+
+              {error && (
+                <div className="p-3 bg-red-50 text-red-700 text-xs rounded-xl border border-red-200 flex items-start">
+                  <AlertCircle className="w-4 h-4 mr-2 flex-shrink-0 mt-0.5" />
+                  <span>{error}</span>
+                </div>
+              )}
+
+              <div className="p-4 bg-blue-50 dark:bg-blue-950/30 rounded-xl border border-blue-200 dark:border-blue-800">
+                <p className="text-xs font-bold text-blue-700 dark:text-blue-400 mb-1">📱 Thiết bị hiện tại sẽ được đăng ký:</p>
+                <p className="text-sm text-blue-800 dark:text-blue-300 break-all">{navigator.userAgent.slice(0, 60)}...</p>
+              </div>
+
+              <button
+                type="button"
+                onClick={handleSetFirstTrusted}
+                disabled={loading}
+                className="w-full py-3 rounded-xl font-black text-white bg-blue-600 hover:bg-blue-700 active:scale-95 transition-all disabled:opacity-50"
+              >
+                {loading ? 'Đang đăng ký...' : '🛡️ Đặt thiết bị này làm thiết bị tin cậy'}
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setTrustedDeviceChallenge(null);
+                  setError('');
+                }}
+                className="w-full py-2 text-sm font-semibold text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200"
+              >
+                ← Quay lại đăng nhập
+              </button>
+            </div>
+          ) : trustedDeviceChallenge && !trustedDeviceChallenge.no_trusted_devices ? (
+            /* Case 2: Đã có thiết bị tin cậy -> Đang chờ phê duyệt */
+            <div className="space-y-4 text-center">
+              <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-blue-100 dark:bg-blue-950 mb-3">
+                {approvalStatus === 'WAITING' ? (
+                  <div className="w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin" />
+                ) : approvalStatus === 'APPROVED' ? (
+                  <CheckCircle2 className="w-8 h-8 text-green-600" />
+                ) : (
+                  <AlertCircle className="w-8 h-8 text-red-600" />
+                )}
+              </div>
+              <h3 className="text-lg font-black text-slate-900 dark:text-white">
+                {approvalStatus === 'WAITING' ? '⏳ Đang chờ phê duyệt...' :
+                 approvalStatus === 'APPROVED' ? '✅ Đã được chấp thuận!' :
+                 '⏰ Yêu cầu đã hết hạn'}
+              </h3>
+              {approvalStatus === 'WAITING' && (
+                <>
+                  <p className="text-sm text-slate-600 dark:text-slate-400">
+                    Một thông báo đã được gửi đến thiết bị tin cậy của bạn.<br />
+                    Hãy mở thông báo đó và ấn <strong>"Chấp thuận"</strong> để đăng nhập.
+                  </p>
+                  <div className="p-3 bg-slate-100 dark:bg-slate-800 rounded-xl text-xs text-slate-600 dark:text-slate-400 text-left">
+                    🖥️ Thiết bị: <strong>{trustedDeviceChallenge.device_info?.device_name || 'Thiết bị hiện tại'}</strong><br />
+                    🌐 IP: <strong>{trustedDeviceChallenge.device_info?.ip_address || 'N/A'}</strong>
+                  </div>
+                </>
+              )}
+              {approvalStatus === 'EXPIRED' && (
+                <button
+                  type="button"
+                  onClick={() => { setTrustedDeviceChallenge(null); setApprovalStatus('WAITING'); }}
+                  className="w-full py-3 rounded-xl font-black text-white bg-red-600 hover:bg-red-700 active:scale-95 transition-all"
+                >
+                  Thử lại
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={() => { setTrustedDeviceChallenge(null); setTrustedDevicePolling(false); }}
+                className="w-full py-2 text-sm font-semibold text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200"
+              >
+                ← Quay lại đăng nhập
+              </button>
+            </div>
+          ) : twoFactorChallenge ? (
             /* 2FA Challenge Form */
             <form onSubmit={handleVerify2FA} className="space-y-4">
               <div className="text-center pb-2">
