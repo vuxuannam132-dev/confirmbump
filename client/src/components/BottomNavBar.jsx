@@ -44,16 +44,16 @@ export default function BottomNavBar({ activeTab, setActiveTab }) {
         </div>
       )}
 
-      {/* Liquid Glass Bottom Navigation Bar */}
+      {/* Liquid Glass Floating Pill Bottom Navigation Bar */}
       <nav 
         aria-label="Thanh điều hướng nhanh"
-        className="fixed bottom-0 inset-x-0 w-full z-30 lg:hidden select-none"
+        className="fixed bottom-3 inset-x-3 sm:inset-x-auto sm:left-1/2 sm:-translate-x-1/2 max-w-md w-[calc(100%-1.5rem)] sm:w-full z-40 lg:hidden select-none"
         style={{
-          paddingBottom: 'max(env(safe-area-inset-bottom, 0px), 8px)',
+          marginBottom: 'max(env(safe-area-inset-bottom, 0px), 4px)',
         }}
       >
-        <div className="relative w-full bg-white/75 dark:bg-slate-900/80 backdrop-blur-2xl border-t border-white/50 dark:border-white/10 shadow-[0_-8px_32px_rgba(0,0,0,0.12)] dark:shadow-[0_-8px_32px_rgba(0,0,0,0.4)] before:absolute before:inset-x-0 before:top-0 before:h-[1px] before:bg-gradient-to-r before:from-transparent before:via-white/70 dark:before:via-blue-400/30 before:to-transparent">
-          <div className="max-w-md mx-auto px-2 py-1.5 flex items-center justify-around">
+        <div className="relative w-full bg-white/85 dark:bg-slate-900/85 backdrop-blur-2xl rounded-3xl sm:rounded-full border border-white/70 dark:border-white/10 shadow-[0_12px_36px_rgba(0,0,0,0.18)] dark:shadow-[0_12px_36px_rgba(0,0,0,0.6)] px-2.5 py-1.5 before:absolute before:inset-x-8 before:top-0 before:h-[1px] before:bg-gradient-to-r before:from-transparent before:via-white/90 dark:before:via-blue-400/40 before:to-transparent">
+          <div className="flex items-center justify-between">
             
             {/* 1. Bên trái: Lịch Sử */}
             <button
@@ -65,7 +65,7 @@ export default function BottomNavBar({ activeTab, setActiveTab }) {
                   : 'text-slate-500 dark:text-slate-400 font-medium hover:text-slate-700 dark:hover:text-slate-200'
               }`}
             >
-              <div className={`p-1 rounded-xl transition-all ${activeTab === 'history' ? 'bg-blue-100/60 dark:bg-blue-950/60' : ''}`}>
+              <div className={`p-1.5 rounded-xl transition-all ${activeTab === 'history' ? 'bg-blue-100/70 dark:bg-blue-950/70' : ''}`}>
                 <Clock className="w-5 h-5" />
               </div>
               <span className="text-[10px] tracking-tight mt-0.5">Lịch sử</span>
@@ -78,13 +78,13 @@ export default function BottomNavBar({ activeTab, setActiveTab }) {
               className="flex-1 flex flex-col items-center justify-center py-1 text-slate-500 dark:text-slate-400 font-medium hover:text-red-600 dark:hover:text-red-400 transition-all duration-150 active:scale-90"
               title="Đăng xuất"
             >
-              <div className="p-1 rounded-xl hover:bg-red-50 dark:hover:bg-red-950/40 transition-all">
+              <div className="p-1.5 rounded-xl hover:bg-red-50 dark:hover:bg-red-950/40 transition-all">
                 <LogOut className="w-5 h-5 text-red-500 dark:text-red-400" />
               </div>
               <span className="text-[10px] tracking-tight text-red-500 dark:text-red-400 font-bold mt-0.5">Đăng xuất</span>
             </button>
 
-            {/* 3. Ở GIỮA: NHIỆM VỤ (Nổi bật màu xanh, FAB nhô cao) */}
+            {/* 3. Ở GIỮA: NHIỆM VỤ (Nổi bật màu xanh, FAB nhô cao hình tròn) */}
             <div className="relative -mt-6 px-1 flex-shrink-0">
               <button
                 type="button"
@@ -93,12 +93,12 @@ export default function BottomNavBar({ activeTab, setActiveTab }) {
                   activeTab === 'tasks'
                     ? 'bg-gradient-to-tr from-blue-600 via-blue-500 to-indigo-600 text-white shadow-blue-500/50 ring-4 ring-blue-500/30'
                     : 'bg-gradient-to-tr from-blue-600 to-indigo-600 text-white shadow-blue-600/40 hover:brightness-110'
-                } border-4 border-slate-50 dark:border-slate-950`}
+                } border-4 border-slate-100 dark:border-slate-900`}
                 title="Trang Nhiệm Vụ"
               >
                 <FileText className="w-6 h-6 stroke-[2.4]" />
               </button>
-              <span className="block text-center text-[10px] font-black text-blue-600 dark:text-blue-400 mt-1">
+              <span className="block text-center text-[10px] font-black text-blue-600 dark:text-blue-400 mt-0.5">
                 Nhiệm vụ
               </span>
             </div>
@@ -113,7 +113,7 @@ export default function BottomNavBar({ activeTab, setActiveTab }) {
                   : 'text-slate-500 dark:text-slate-400 font-medium hover:text-slate-700 dark:hover:text-slate-200'
               }`}
             >
-              <div className={`p-1 rounded-xl transition-all ${activeTab === 'settings' ? 'bg-blue-100/60 dark:bg-blue-950/60' : ''}`}>
+              <div className={`p-1.5 rounded-xl transition-all ${activeTab === 'settings' ? 'bg-blue-100/70 dark:bg-blue-950/70' : ''}`}>
                 <Settings className="w-5 h-5" />
               </div>
               <span className="text-[10px] tracking-tight mt-0.5">Cài đặt</span>
@@ -126,7 +126,7 @@ export default function BottomNavBar({ activeTab, setActiveTab }) {
               className="flex-1 flex flex-col items-center justify-center py-1 text-slate-500 dark:text-slate-400 font-medium hover:text-amber-500 dark:hover:text-amber-400 transition-all duration-150 active:scale-90"
               title="Đổi Giao diện Sáng / Tối"
             >
-              <div className="p-1 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 transition-all">
+              <div className="p-1.5 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 transition-all">
                 {theme === 'dark' ? (
                   <Sun className="w-5 h-5 text-amber-400" />
                 ) : (

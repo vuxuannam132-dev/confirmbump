@@ -71,6 +71,11 @@ export default function SettingsPage() {
   const [sessionActionId, setSessionActionId] = useState(null);
   const [sessionMsg, setSessionMsg] = useState(null);
 
+  // Pending 2FA Login Challenges Waiting for Approval
+  const [pendingChallenges, setPendingChallenges] = useState([]);
+  const [actioningChallengeId, setActioningChallengeId] = useState(null);
+  const [challengeFeedback, setChallengeFeedback] = useState(null);
+
   // 2FA States
   const [twoFactorEnabled, setTwoFactorEnabled] = useState(
     user?.two_factor_enabled === 1 || user?.two_factor_enabled === true
@@ -114,18 +119,25 @@ export default function SettingsPage() {
   useEffect(() => {
     checkPushStatus();
     fetchSessions();
+    fetchPendingChallenges();
+
+    // Poll for pending 2FA challenges every 4 seconds
+    const pollTimer = setInterval(() => {
+      fetchPendingChallenges();
+    }, 4000);
 
     const checkFocus = () => {
       const params = new URLSearchParams(window.location.search);
       const focus = params.get('focus');
+      const section = params.get('section');
       const hash = window.location.hash;
-      if (focus === 'security' || hash === '#security' || focus === 'devices') {
+      if (focus === 'security' || section === 'security' || hash === '#security' || focus === 'devices') {
         setTimeout(() => {
           const target = document.getElementById('device-tracking-section') || document.getElementById('security-section');
           if (target) {
             target.scrollIntoView({ behavior: 'smooth', block: 'center' });
-            target.classList.add('ring-4', 'ring-red-500/60', 'transition-all');
-            setTimeout(() => target.classList.remove('ring-4', 'ring-red-500/60'), 3500);
+            target.classList.add('ring-4', 'ring-amber-500/70', 'transition-all');
+            setTimeout(() => target.classList.remove('ring-4', 'ring-amber-500/70'), 3500);
           }
         }, 350);
       }
@@ -133,7 +145,18 @@ export default function SettingsPage() {
 
     checkFocus();
     window.addEventListener('hashchange', checkFocus);
-    return () => window.removeEventListener('hashchange', checkFocus);
+
+    const handleRefreshChallenges = () => {
+      fetchPendingChallenges();
+      fetchSessions();
+    };
+    window.addEventListener('refresh-device-challenges', handleRefreshChallenges);
+
+    return () => {
+      clearInterval(pollTimer);
+      window.removeEventListener('hashchange', checkFocus);
+      window.removeEventListener('refresh-device-challenges', handleRefreshChallenges);
+    };
   }, []);
 
   useEffect(() => {
@@ -226,6 +249,44 @@ export default function SettingsPage() {
       console.warn('Error fetching sessions:', e);
     } finally {
       setSessionsLoading(false);
+    }
+  };
+
+  const fetchPendingChallenges = async () => {
+    try {
+      const res = await api.get('/auth/2fa/pending-challenges');
+      if (res.data?.success) {
+        setPendingChallenges(res.data.challenges || []);
+      }
+    } catch (e) {
+      console.warn('Error fetching pending challenges:', e);
+    }
+  };
+
+  const handleApproveRejectChallenge = async (challengeToken, approved) => {
+    setActioningChallengeId(challengeToken);
+    setChallengeFeedback(null);
+    try {
+      const res = await api.post('/auth/2fa/approve-device', {
+        challenge_token: challengeToken,
+        approved
+      });
+      if (res.data?.success) {
+        setChallengeFeedback({
+          type: approved ? 'success' : 'error',
+          text: approved 
+            ? '✅ Đã chấp thuận đăng nhập thành công cho thiết bị mới!' 
+            : '⛔ Đã từ chối đăng nhập. Thiết bị này đã bị tạm khóa 20 phút.'
+        });
+        fetchPendingChallenges();
+        fetchSessions();
+      } else {
+        setChallengeFeedback({ type: 'error', text: res.data?.message || 'Lỗi xử lý yêu cầu' });
+      }
+    } catch (err) {
+      setChallengeFeedback({ type: 'error', text: err.response?.data?.message || err.message || 'Lỗi xử lý yêu cầu' });
+    } finally {
+      setActioningChallengeId(null);
     }
   };
 
@@ -809,14 +870,116 @@ export default function SettingsPage() {
 
           <button
             type="button"
-            onClick={fetchSessions}
+            onClick={() => {
+              fetchSessions();
+              fetchPendingChallenges();
+            }}
             disabled={sessionsLoading}
             className="p-2 rounded-xl text-slate-500 hover:text-slate-800 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
-            title="Làm mới danh sách thiết bị"
+            title="Làm mới danh sách thiết bị và phê duyệt"
           >
             <RefreshCw className={`w-4 h-4 ${sessionsLoading ? 'animate-spin text-blue-600' : ''}`} />
           </button>
         </div>
+
+        {/* PENDING 2FA LOGIN CHALLENGES WAITING FOR APPROVAL FROM THIS TRUSTED DEVICE */}
+        {pendingChallenges.length > 0 && (
+          <div className="space-y-3 p-4 sm:p-5 rounded-3xl border-2 border-amber-400 dark:border-amber-500/80 bg-gradient-to-br from-amber-500/10 via-orange-500/5 to-transparent dark:from-amber-950/40 dark:via-slate-900/80 dark:to-slate-900 shadow-xl shadow-amber-500/10 animate-in fade-in zoom-in-98 duration-200">
+            <div className="flex items-center justify-between pb-2 border-b border-amber-200/60 dark:border-amber-800/40">
+              <div className="flex items-center space-x-2">
+                <span className="relative flex h-3 w-3">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-3 w-3 bg-amber-500"></span>
+                </span>
+                <span className="text-xs font-black uppercase tracking-wider text-amber-700 dark:text-amber-400">
+                  Yêu Cầu Đăng Nhập Chờ Bạn Phê Duyệt ({pendingChallenges.length})
+                </span>
+              </div>
+              <span className="text-[10px] font-bold text-amber-600 dark:text-amber-400">
+                Xác thực 2 lớp (2FA)
+              </span>
+            </div>
+
+            <div className="space-y-3">
+              {pendingChallenges.map((challenge) => {
+                const dev = challenge.device_info || {};
+                const isActing = actioningChallengeId === challenge.challenge_token;
+
+                return (
+                  <div 
+                    key={challenge.id}
+                    className="p-4 rounded-2xl bg-white dark:bg-slate-800 border border-amber-300 dark:border-amber-700/60 shadow-xs space-y-3"
+                  >
+                    <div className="flex items-start justify-between gap-2.5">
+                      <div className="flex items-start space-x-3 min-w-0">
+                        <div className="w-10 h-10 rounded-xl bg-amber-100 dark:bg-amber-950 text-amber-600 dark:text-amber-400 flex items-center justify-center flex-shrink-0 mt-0.5 shadow-2xs">
+                          <AlertTriangle className="w-5 h-5 stroke-[2.2]" />
+                        </div>
+                        <div className="min-w-0">
+                          <div className="flex items-center flex-wrap gap-1.5">
+                            <h4 className="text-xs sm:text-sm font-black text-slate-900 dark:text-white truncate">
+                              {dev.device_name || `${dev.browser_name || 'Trình duyệt'} trên ${dev.os_name || 'thiết bị lạ'}`}
+                            </h4>
+                            <span className="px-2 py-0.5 rounded-full text-[9px] font-black uppercase bg-amber-100 dark:bg-amber-900/80 text-amber-800 dark:text-amber-200">
+                              Chờ phê duyệt
+                            </span>
+                          </div>
+                          <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
+                            Hệ điều hành: <strong>{dev.os_name || 'Thiết bị'}</strong> • Trình duyệt: <strong>{dev.browser_name || 'Trình duyệt'}</strong>
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 p-2.5 bg-slate-50 dark:bg-slate-900/60 rounded-xl text-[11px] text-slate-600 dark:text-slate-400">
+                      <span className="inline-flex items-center">
+                        <Globe className="w-3.5 h-3.5 mr-1 text-slate-400" />
+                        IP: <code className="font-mono ml-1 font-bold text-slate-800 dark:text-slate-200">{dev.ip_address || '127.0.0.1'}</code>
+                      </span>
+                      <span className="inline-flex items-center">
+                        <MapPin className="w-3.5 h-3.5 mr-1 text-slate-400" />
+                        {dev.location_text || 'Việt Nam'}
+                      </span>
+                      <span className="inline-flex items-center">
+                        <Clock className="w-3.5 h-3.5 mr-1 text-slate-400" />
+                        {formatSessionDate(challenge.created_at)}
+                      </span>
+                    </div>
+
+                    <div className="flex flex-col sm:flex-row gap-2 pt-1">
+                      <button
+                        type="button"
+                        disabled={isActing}
+                        onClick={() => handleApproveRejectChallenge(challenge.challenge_token, false)}
+                        className="flex-1 py-2.5 px-3 rounded-xl text-xs font-black bg-red-50 hover:bg-red-100 dark:bg-red-950/50 dark:hover:bg-red-900/50 text-red-700 dark:text-red-300 border border-red-200 dark:border-red-800 active:scale-95 transition-all disabled:opacity-50 text-center"
+                      >
+                        ⛔ Từ Chối (Khóa 20 phút)
+                      </button>
+                      <button
+                        type="button"
+                        disabled={isActing}
+                        onClick={() => handleApproveRejectChallenge(challenge.challenge_token, true)}
+                        className="flex-1 py-2.5 px-3 rounded-xl text-xs font-black bg-emerald-600 hover:bg-emerald-700 text-white shadow-md shadow-emerald-600/30 active:scale-95 transition-all disabled:opacity-50 text-center"
+                      >
+                        {isActing ? 'Đang xác thực...' : '✅ Chấp Thuận Đăng Nhập'}
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        {challengeFeedback && (
+          <div className={`p-3 rounded-2xl text-xs font-bold border animate-in fade-in ${
+            challengeFeedback.type === 'success'
+              ? 'bg-emerald-50 text-emerald-800 border-emerald-200 dark:bg-emerald-950/50 dark:text-emerald-300'
+              : 'bg-red-50 text-red-800 border-red-200 dark:bg-red-950/50 dark:text-red-300'
+          }`}>
+            {challengeFeedback.text}
+          </div>
+        )}
 
         {sessionMsg && (
           <div className={`p-3 rounded-2xl text-xs font-bold border animate-in fade-in ${

@@ -1000,14 +1000,76 @@ async function setFirstTrustedDevice(req, res) {
   }
 }
 
+// GET /api/auth/2fa/pending-challenges (verifyToken - fetch pending 2FA approvals for user's trusted device)
+async function getPendingTwoFactorChallenges(req, res) {
+  try {
+    const userId = req.user.id;
+    const challenges = await db.all(`
+      SELECT id, user_id, challenge_token, method, device_info, expires_at, created_at
+      FROM two_factor_challenges
+      WHERE user_id = ? AND method = 'TRUSTED_DEVICE' AND is_verified = 0 AND expires_at > CURRENT_TIMESTAMP
+      ORDER BY id DESC
+    `, [userId]);
+
+    const formatted = (challenges || []).map(c => {
+      let deviceInfo = {};
+      try {
+        deviceInfo = JSON.parse(c.device_info || '{}');
+      } catch (e) {}
+
+      return {
+        id: c.id,
+        challenge_token: c.challenge_token,
+        method: c.method,
+        device_info: deviceInfo,
+        expires_at: c.expires_at,
+        created_at: c.created_at
+      };
+    });
+
+    return res.json({ success: true, challenges: formatted });
+  } catch (error) {
+    console.error('Error in getPendingTwoFactorChallenges:', error);
+    return res.status(500).json({ success: false, message: error.message });
+  }
+}
+
+// POST /api/auth/logout (verifyToken - marks current device offline and removes push sub)
+async function logout(req, res) {
+  try {
+    const userId = req.user?.id;
+    const deviceId = (req.deviceId || req.body?.device_id || req.headers['x-device-id'] || '').trim();
+
+    if (userId && deviceId) {
+      await db.run(
+        'UPDATE login_sessions SET is_online = 0 WHERE user_id = ? AND device_id = ?',
+        [userId, deviceId]
+      );
+      try {
+        await db.run(
+          'DELETE FROM push_subscriptions WHERE user_id = ? AND device_id = ?',
+          [userId, deviceId]
+        );
+      } catch (e) {}
+    }
+
+    return res.json({ success: true, message: 'Đăng xuất thành công.' });
+  } catch (error) {
+    console.error('Error in logout:', error);
+    return res.status(500).json({ success: false, message: error.message });
+  }
+}
+
 module.exports = {
   sendOtp,
   register,
   login,
+  logout,
   verifyTwoFactor,
   approveTrustedDevice,
   checkTwoFactorStatus,
   setFirstTrustedDevice,
+  getPendingTwoFactorChallenges,
   getLoginSessions,
   trustLoginSession,
   revokeLoginSession,

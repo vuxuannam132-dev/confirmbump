@@ -1,4 +1,4 @@
-import api from './api';
+import api, { getClientDeviceId } from './api';
 
 // Utility to convert VAPID public key base64 string to Uint8Array
 function urlBase64ToUint8Array(base64String) {
@@ -150,7 +150,8 @@ export const pushNotificationService = {
 
     // Send subscription to server
     const res = await api.post('/notifications/subscribe', {
-      subscription: serialized
+      subscription: serialized,
+      device_id: getClientDeviceId()
     });
 
     return res.data;

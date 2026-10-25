@@ -281,6 +281,7 @@ async function initDb() {
           CREATE TABLE IF NOT EXISTS push_subscriptions (
             id SERIAL PRIMARY KEY,
             user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+            device_id VARCHAR(100),
             endpoint TEXT UNIQUE NOT NULL,
             p256dh TEXT NOT NULL,
             auth TEXT NOT NULL,
@@ -397,6 +398,7 @@ async function initDb() {
           CREATE TABLE IF NOT EXISTS push_subscriptions (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+            device_id TEXT,
             endpoint TEXT UNIQUE NOT NULL,
             p256dh TEXT NOT NULL,
             auth TEXT NOT NULL,
@@ -440,6 +442,21 @@ async function initDb() {
           // Ignore
         }
       }
+
+      // Ensure push_subscriptions has device_id column
+      try {
+        if (isPg) {
+          await db.exec(`ALTER TABLE push_subscriptions ADD COLUMN IF NOT EXISTS device_id VARCHAR(100);`);
+          await db.exec(`CREATE INDEX IF NOT EXISTS idx_push_sub_user_device ON push_subscriptions(user_id, device_id);`);
+        } else {
+          try {
+            sqliteDb.exec(`ALTER TABLE push_subscriptions ADD COLUMN device_id TEXT;`);
+          } catch (e) {}
+          try {
+            sqliteDb.exec(`CREATE INDEX IF NOT EXISTS idx_push_sub_user_device ON push_subscriptions(user_id, device_id);`);
+          } catch (e) {}
+        }
+      } catch (e) {}
 
       // Optional indexes & migrations for security and performance
       try {

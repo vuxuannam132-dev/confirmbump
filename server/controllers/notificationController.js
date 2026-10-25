@@ -14,15 +14,16 @@ function getVapidPublicKey(req, res) {
 // POST /api/notifications/subscribe
 async function subscribePush(req, res) {
   try {
-    const { subscription } = req.body;
+    const { subscription, device_id } = req.body;
     const user = req.user;
     const userAgent = req.headers['user-agent'] || '';
+    const deviceId = (device_id || req.deviceId || req.headers['x-device-id'] || '').trim() || null;
 
     if (!subscription || !subscription.endpoint || !subscription.keys) {
       return res.status(400).json({ success: false, message: 'Dữ liệu đăng ký push không hợp lệ (thiếu keys mã hóa).' });
     }
 
-    const subId = await pushService.saveSubscription(user.id, subscription, userAgent);
+    const subId = await pushService.saveSubscription(user.id, subscription, userAgent, deviceId);
 
     if (!subId) {
       return res.status(500).json({ success: false, message: 'Không thể lưu thông tin đăng ký thiết bị vào cơ sở dữ liệu.' });

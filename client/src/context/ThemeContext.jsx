@@ -27,8 +27,12 @@ export function ThemeProvider({ children }) {
     setThemeState(newTheme);
   };
 
+  const cycleTheme = () => {
+    setThemeState(prev => prev === 'dark' ? 'light' : 'dark');
+  };
+
   return (
-    <ThemeContext.Provider value={{ theme, setTheme }}>
+    <ThemeContext.Provider value={{ theme, setTheme, cycleTheme }}>
       {children}
     </ThemeContext.Provider>
   );

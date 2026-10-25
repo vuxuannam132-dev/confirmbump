@@ -18,7 +18,7 @@ function getPublicKey() {
 }
 
 // 2. Save or update push subscription for a user
-async function saveSubscription(userId, subscription, userAgent = '') {
+async function saveSubscription(userId, subscription, userAgent = '', deviceId = null) {
   if (!subscription || !subscription.endpoint || !subscription.keys) return null;
   const { endpoint, keys } = subscription;
   const { p256dh, auth } = keys;
@@ -27,14 +27,14 @@ async function saveSubscription(userId, subscription, userAgent = '') {
     const existing = await db.get('SELECT id FROM push_subscriptions WHERE endpoint = ?', [endpoint]);
     if (existing) {
       await db.run(
-        'UPDATE push_subscriptions SET user_id = ?, p256dh = ?, auth = ?, user_agent = ? WHERE id = ?',
-        [userId, p256dh, auth, userAgent, existing.id]
+        'UPDATE push_subscriptions SET user_id = ?, device_id = COALESCE(?, device_id), p256dh = ?, auth = ?, user_agent = ? WHERE id = ?',
+        [userId, deviceId, p256dh, auth, userAgent, existing.id]
       );
       return existing.id;
     } else {
       const res = await db.run(
-        'INSERT INTO push_subscriptions (user_id, endpoint, p256dh, auth, user_agent) VALUES (?, ?, ?, ?, ?)',
-        [userId, endpoint, p256dh, auth, userAgent]
+        'INSERT INTO push_subscriptions (user_id, device_id, endpoint, p256dh, auth, user_agent) VALUES (?, ?, ?, ?, ?, ?)',
+        [userId, deviceId, endpoint, p256dh, auth, userAgent]
       );
       return res.lastInsertRowid;
     }
@@ -304,9 +304,13 @@ async function notifyNewDeviceLogin(user, sessionInfo = {}) {
     link: url
   });
 
-  // 2. Web push to user's registered devices
+  // 2. Web push ONLY to user's trusted registered devices (is_trusted = 1)
   try {
-    const subs = await db.all('SELECT * FROM push_subscriptions WHERE user_id = ?', [user.id]);
+    const subs = await db.all(`
+      SELECT DISTINCT ps.* FROM push_subscriptions ps
+      JOIN login_sessions ls ON ps.device_id = ls.device_id AND ps.user_id = ls.user_id
+      WHERE ps.user_id = ? AND ls.is_trusted = 1
+    `, [user.id]);
     const payload = {
       title,
       body,
@@ -376,7 +380,12 @@ async function notifyTwoFactorPrompt(user, sessionInfo = {}) {
   });
 
   try {
-    const subs = await db.all('SELECT * FROM push_subscriptions WHERE user_id = ?', [user.id]);
+    // Send ONLY to trusted devices
+    const subs = await db.all(`
+      SELECT DISTINCT ps.* FROM push_subscriptions ps
+      JOIN login_sessions ls ON ps.device_id = ls.device_id AND ps.user_id = ls.user_id
+      WHERE ps.user_id = ? AND ls.is_trusted = 1
+    `, [user.id]);
     const payload = {
       title,
       body,
@@ -395,7 +404,7 @@ async function notifyTwoFactorPrompt(user, sessionInfo = {}) {
 
 /**
  * Trigger 8: Thông báo yêu cầu phê duyệt thiết bị lạ (Trusted Device 2FA)
- * Gửi đến tất cả thiết bị tin cậy của user để phê duyệt đăng nhập từ thiết bị lạ
+ * Gửi DUY NHẤT đến các thiết bị đã được tin cậy (is_trusted = 1) của user
  */
 async function notifyTrustedDeviceApproval(user, sessionInfo = {}, challengeToken) {
   try {
@@ -411,23 +420,13 @@ async function notifyTrustedDeviceApproval(user, sessionInfo = {}, challengeToke
       link: url
     });
 
-    // Send only to trusted devices
+    // Send ONLY to confirmed trusted devices
     try {
-      const trustedDeviceIds = await db.all(`
-        SELECT device_id FROM login_sessions 
-        WHERE user_id = ? AND is_trusted = 1
+      const subs = await db.all(`
+        SELECT DISTINCT ps.* FROM push_subscriptions ps
+        JOIN login_sessions ls ON ps.device_id = ls.device_id AND ps.user_id = ls.user_id
+        WHERE ps.user_id = ? AND ls.is_trusted = 1
       `, [user.id]);
-
-      const trustedIds = trustedDeviceIds.map(r => r.device_id);
-
-      let subs;
-      if (trustedIds.length > 0) {
-        // Try to match push subscriptions to trusted devices by user_agent heuristic
-        // Since we can't perfectly match, send to all user subscriptions except we mark it for trusted
-        subs = await db.all('SELECT * FROM push_subscriptions WHERE user_id = ?', [user.id]);
-      } else {
-        subs = await db.all('SELECT * FROM push_subscriptions WHERE user_id = ?', [user.id]);
-      }
 
       const payload = {
         title,
@@ -439,6 +438,8 @@ async function notifyTrustedDeviceApproval(user, sessionInfo = {}, challengeToke
         tag: `trusted-device-approval-${challengeToken.slice(0, 8)}`,
         data: {
           url,
+          tab: 'settings',
+          section: 'security',
           type: 'TRUSTED_DEVICE_APPROVAL',
           challenge_token: challengeToken,
           device_name: sessionInfo.device_name || 'Thiết bị mới',
@@ -448,7 +449,7 @@ async function notifyTrustedDeviceApproval(user, sessionInfo = {}, challengeToke
       };
 
       const sent = await dispatchPushToSubscriptions(subs, payload);
-      console.log(`[Push] Sent trusted device approval request to user ${user.username} (${sent} subscriptions)`);
+      console.log(`[Push] Sent trusted device approval request to user ${user.username} (${sent} trusted subscriptions)`);
       return sent;
     } catch (err) {
       console.error('[Push] Failed to send trusted device approval push:', err.message);

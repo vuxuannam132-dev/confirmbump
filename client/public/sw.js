@@ -84,15 +84,17 @@ self.addEventListener('notificationclick', (event) => {
         if ('focus' in client) {
           try {
             client.postMessage({
-              type: isApproval ? 'TRUSTED_DEVICE_APPROVAL_REQUEST' : 'NAVIGATE_TAB',
+              type: 'NAVIGATE_TAB',
               tab: targetTab,
               section: targetSection,
               url: targetUrl,
+              isApproval,
               ...notifData
             });
           } catch (e) {}
 
-          if ('navigate' in client && targetUrl) {
+          // Only navigate if URL is not already on app origin
+          if ('navigate' in client && targetUrl && !client.url?.includes('tab=')) {
             try {
               client.navigate(targetUrl);
             } catch (e) {}

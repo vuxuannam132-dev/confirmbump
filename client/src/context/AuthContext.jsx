@@ -115,7 +115,10 @@ export function AuthProvider({ children }) {
     });
   };
 
-  const logout = () => {
+  const logout = async () => {
+    try {
+      await api.post('/auth/logout');
+    } catch (e) {}
     setToken(null);
     setUser(null);
     localStorage.removeItem('token');
