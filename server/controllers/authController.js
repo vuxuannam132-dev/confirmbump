@@ -213,6 +213,67 @@ async function login(req, res) {
 
     // If 2FA enabled and device is NOT trusted -> Trigger 2FA Challenge
     if (twoFactorEnabled && !isDeviceTrusted) {
+      // For TRUSTED_DEVICE method: handle interactive approval flow
+      if (user.two_factor_method === 'TRUSTED_DEVICE') {
+        // Check if user has any trusted device registered
+        const hasTrustedDevice = await db.get(`
+          SELECT id FROM login_sessions 
+          WHERE user_id = ? AND is_trusted = 1
+          LIMIT 1
+        `, [user.id]);
+
+        if (!hasTrustedDevice) {
+          // No trusted device yet -> let user register this device as the first
+          const setupToken = crypto.randomBytes(32).toString('hex');
+          try {
+            await db.run('DELETE FROM two_factor_challenges WHERE user_id = ? AND is_verified = 0', [user.id]);
+          } catch (e) {}
+
+          await db.run(`
+            INSERT INTO two_factor_challenges (user_id, challenge_token, otp_code, method, device_info, is_verified, expires_at)
+            VALUES (?, ?, ?, ?, ?, 0, ?)
+          `, [user.id, setupToken, '000000000', 'TRUSTED_DEVICE_SETUP', JSON.stringify(sessionInfo), new Date(Date.now() + 10 * 60 * 1000).toISOString()]);
+
+          return res.json({
+            success: true,
+            require2fa: true,
+            method: 'TRUSTED_DEVICE',
+            no_trusted_devices: true,
+            setup_token: setupToken,
+            message: 'Bạn chưa có thiết bị tin cậy nào. Vui lòng đăng ký thiết bị này làm thiết bị tin cậy đầu tiên.'
+          });
+        }
+
+        // Has trusted device(s) -> create challenge and wait for interactive approval
+        const challengeToken = crypto.randomBytes(32).toString('hex');
+        const expiresAt = new Date(Date.now() + 5 * 60 * 1000).toISOString();
+
+        try {
+          await db.run('DELETE FROM two_factor_challenges WHERE user_id = ? AND is_verified = 0', [user.id]);
+        } catch (e) {}
+
+        await db.run(`
+          INSERT INTO two_factor_challenges (user_id, challenge_token, otp_code, method, device_info, is_verified, expires_at)
+          VALUES (?, ?, ?, ?, ?, 0, ?)
+        `, [user.id, challengeToken, 'TRUSTED_DEVICE_APPROVAL', 'TRUSTED_DEVICE', JSON.stringify(sessionInfo), expiresAt]);
+
+        // Send push notification to trusted devices
+        await pushService.notifyTrustedDeviceApproval(user, sessionInfo, challengeToken);
+
+        return res.json({
+          success: true,
+          require2fa: true,
+          method: 'TRUSTED_DEVICE',
+          no_trusted_devices: false,
+          challenge_token: challengeToken,
+          device_info: {
+            device_name: resolvedDeviceName,
+            ip_address: ip
+          }
+        });
+      }
+
+      // EMAIL (or other) 2FA method
       const otpCode = generate9DigitOtp();
       const challengeToken = crypto.randomBytes(32).toString('hex');
       const expiresAt = new Date(Date.now() + 5 * 60 * 1000).toISOString();
@@ -655,11 +716,236 @@ async function updateAvatar(req, res) {
   }
 }
 
+// POST /api/auth/2fa/approve-device (verifyToken - called by trusted device to approve/reject)
+async function approveTrustedDevice(req, res) {
+  try {
+    const { challenge_token, approved } = req.body;
+    const userId = req.user.id;
+
+    if (!challenge_token) {
+      return res.status(400).json({ success: false, message: 'Thiếu challenge token.' });
+    }
+
+    const challenge = await db.get(`
+      SELECT * FROM two_factor_challenges 
+      WHERE challenge_token = ? AND user_id = ? AND is_verified = 0 AND method = 'TRUSTED_DEVICE'
+    `, [challenge_token, userId]);
+
+    if (!challenge) {
+      return res.status(404).json({ success: false, message: 'Không tìm thấy yêu cầu xác thực hoặc đã hết hạn.' });
+    }
+
+    const isExpired = new Date(challenge.expires_at).getTime() < Date.now();
+    if (isExpired) {
+      return res.status(400).json({ success: false, message: 'Yêu cầu xác thực đã hết hạn.' });
+    }
+
+    if (approved === false || approved === 'false') {
+      // Rejected
+      await db.run('DELETE FROM two_factor_challenges WHERE id = ?', [challenge.id]);
+      return res.json({ success: true, approved: false, message: 'Đã từ chối yêu cầu đăng nhập.' });
+    }
+
+    // Approved
+    await db.run('UPDATE two_factor_challenges SET is_verified = 1 WHERE id = ?', [challenge.id]);
+    return res.json({ success: true, approved: true, message: 'Đã chấp thuận đăng nhập thành công!' });
+  } catch (error) {
+    return res.status(500).json({ success: false, message: error.message });
+  }
+}
+
+// GET /api/auth/2fa/status?token=xxx (public - polled by untrusted device waiting for approval)
+async function checkTwoFactorStatus(req, res) {
+  try {
+    const { token } = req.query;
+    if (!token) {
+      return res.status(400).json({ success: false, message: 'Thiếu token.' });
+    }
+
+    const challenge = await db.get(`
+      SELECT c.*, u.id as u_id, u.username, u.role, u.email, u.full_name, u.status,
+             u.department_id, u.avatar_url, u.two_factor_enabled, u.two_factor_method,
+             d.name as department_name, d.code as department_code, d.color as department_color
+      FROM two_factor_challenges c
+      JOIN users u ON c.user_id = u.id
+      LEFT JOIN departments d ON u.department_id = d.id
+      WHERE c.challenge_token = ?
+    `, [token]);
+
+    if (!challenge) {
+      return res.status(404).json({ success: false, status: 'NOT_FOUND' });
+    }
+
+    const isExpired = new Date(challenge.expires_at).getTime() < Date.now();
+    if (isExpired) {
+      return res.json({ success: true, status: 'EXPIRED' });
+    }
+
+    if (challenge.is_verified === 1) {
+      // Approved - create JWT and record session
+      let sessionInfo = {};
+      try { sessionInfo = JSON.parse(challenge.device_info || '{}'); } catch (e) {}
+
+      const deviceId = sessionInfo.device_id || `device_${Date.now()}`;
+      const deviceName = sessionInfo.device_name || 'Thiết bị';
+      const osName = sessionInfo.os_name || 'Thiết bị';
+      const browserName = sessionInfo.browser_name || 'Trình duyệt web';
+      const ipAddress = sessionInfo.ip_address || '127.0.0.1';
+
+      // Record session
+      const existingSession = await db.get(
+        'SELECT id FROM login_sessions WHERE user_id = ? AND device_id = ?',
+        [challenge.user_id, deviceId]
+      );
+
+      if (existingSession) {
+        await db.run(
+          'UPDATE login_sessions SET device_name=?, os_name=?, browser_name=?, ip_address=?, is_online=1, last_seen=CURRENT_TIMESTAMP WHERE id=?',
+          [deviceName, osName, browserName, ipAddress, existingSession.id]
+        );
+      } else {
+        await db.run(`
+          INSERT INTO login_sessions (user_id, device_id, device_name, os_name, browser_name, ip_address, location_text, is_trusted, is_online, last_seen)
+          VALUES (?, ?, ?, ?, ?, ?, 'Việt Nam', 0, 1, CURRENT_TIMESTAMP)
+        `, [challenge.user_id, deviceId, deviceName, osName, browserName, ipAddress]);
+      }
+
+      const user = {
+        id: challenge.u_id,
+        username: challenge.username,
+        role: challenge.role,
+        email: challenge.email,
+        full_name: challenge.full_name,
+        status: challenge.status,
+        department_id: challenge.department_id,
+        department_name: challenge.department_name,
+        department_code: challenge.department_code,
+        department_color: challenge.department_color,
+        avatar_url: challenge.avatar_url,
+        two_factor_enabled: challenge.two_factor_enabled,
+        two_factor_method: challenge.two_factor_method
+      };
+
+      const jwtToken = jwt.sign(
+        { id: user.id, username: user.username, role: user.role, device_id: deviceId },
+        JWT_SECRET,
+        { expiresIn: '7d' }
+      );
+
+      // Cleanup challenge
+      await db.run('DELETE FROM two_factor_challenges WHERE id = ?', [challenge.id]);
+
+      return res.json({
+        success: true,
+        status: 'APPROVED',
+        token: jwtToken,
+        user
+      });
+    }
+
+    return res.json({ success: true, status: 'PENDING' });
+  } catch (error) {
+    return res.status(500).json({ success: false, message: error.message });
+  }
+}
+
+// POST /api/auth/2fa/set-first-trusted (public - registers current device as first trusted)
+async function setFirstTrustedDevice(req, res) {
+  try {
+    const { setup_token, device_id, device_name } = req.body;
+    if (!setup_token) {
+      return res.status(400).json({ success: false, message: 'Thiếu setup token.' });
+    }
+
+    const challenge = await db.get(`
+      SELECT c.*, u.id as u_id, u.username, u.role, u.email, u.full_name, u.status,
+             u.department_id, u.avatar_url, u.two_factor_enabled, u.two_factor_method,
+             d.name as department_name, d.code as department_code, d.color as department_color
+      FROM two_factor_challenges c
+      JOIN users u ON c.user_id = u.id
+      LEFT JOIN departments d ON u.department_id = d.id
+      WHERE c.challenge_token = ? AND c.method = 'TRUSTED_DEVICE_SETUP' AND c.is_verified = 0
+    `, [setup_token]);
+
+    if (!challenge) {
+      return res.status(404).json({ success: false, message: 'Token không hợp lệ hoặc đã hết hạn.' });
+    }
+
+    const isExpired = new Date(challenge.expires_at).getTime() < Date.now();
+    if (isExpired) {
+      return res.status(400).json({ success: false, message: 'Token đã hết hạn. Vui lòng đăng nhập lại.' });
+    }
+
+    let sessionInfo = {};
+    try { sessionInfo = JSON.parse(challenge.device_info || '{}'); } catch (e) {}
+
+    const resolvedDeviceId = device_id || sessionInfo.device_id || `device_${Date.now()}`;
+    const resolvedDeviceName = device_name || sessionInfo.device_name || 'Thiết bị tin cậy';
+    const osName = sessionInfo.os_name || 'Thiết bị';
+    const browserName = sessionInfo.browser_name || 'Trình duyệt web';
+    const ipAddress = sessionInfo.ip_address || '127.0.0.1';
+
+    const existingSession = await db.get(
+      'SELECT id FROM login_sessions WHERE user_id = ? AND device_id = ?',
+      [challenge.user_id, resolvedDeviceId]
+    );
+
+    if (existingSession) {
+      await db.run(
+        'UPDATE login_sessions SET is_trusted=1, device_name=?, os_name=?, browser_name=?, ip_address=?, is_online=1, last_seen=CURRENT_TIMESTAMP WHERE id=?',
+        [resolvedDeviceName, osName, browserName, ipAddress, existingSession.id]
+      );
+    } else {
+      await db.run(`
+        INSERT INTO login_sessions (user_id, device_id, device_name, os_name, browser_name, ip_address, location_text, is_trusted, is_online, last_seen)
+        VALUES (?, ?, ?, ?, ?, ?, 'Việt Nam', 1, 1, CURRENT_TIMESTAMP)
+      `, [challenge.user_id, resolvedDeviceId, resolvedDeviceName, osName, browserName, ipAddress]);
+    }
+
+    // Mark challenge as done
+    await db.run('UPDATE two_factor_challenges SET is_verified = 1 WHERE id = ?', [challenge.id]);
+
+    const user = {
+      id: challenge.u_id,
+      username: challenge.username,
+      role: challenge.role,
+      email: challenge.email,
+      full_name: challenge.full_name,
+      status: challenge.status,
+      department_id: challenge.department_id,
+      department_name: challenge.department_name,
+      department_code: challenge.department_code,
+      department_color: challenge.department_color,
+      avatar_url: challenge.avatar_url,
+      two_factor_enabled: challenge.two_factor_enabled,
+      two_factor_method: challenge.two_factor_method
+    };
+
+    const jwtToken = jwt.sign(
+      { id: user.id, username: user.username, role: user.role, device_id: resolvedDeviceId },
+      JWT_SECRET,
+      { expiresIn: '7d' }
+    );
+
+    return res.json({
+      success: true,
+      message: 'Đã đăng ký thiết bị tin cậy và đăng nhập thành công!',
+      token: jwtToken,
+      user
+    });
+  } catch (error) {
+    return res.status(500).json({ success: false, message: error.message });
+  }
+}
+
 module.exports = {
   sendOtp,
   register,
   login,
   verifyTwoFactor,
+  approveTrustedDevice,
+  checkTwoFactorStatus,
+  setFirstTrustedDevice,
   getLoginSessions,
   trustLoginSession,
   revokeLoginSession,

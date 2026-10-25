@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { ThemeProvider } from './context/ThemeContext';
 import Sidebar from './components/Sidebar';
+import BottomNavBar from './components/BottomNavBar';
 import LoginPage from './pages/LoginPage';
 import RegisterPage from './pages/RegisterPage';
 import DashboardPage from './pages/DashboardPage';
@@ -106,9 +107,12 @@ function AppContent() {
           onOpenInstallAppModal={() => setShowInstallGuide(true)} 
         />
 
+        {/* Bottom Navigation Bar - mobile only */}
+        <BottomNavBar activeTab={activeTab} setActiveTab={setActiveTab} />
+
         {/* Main Content Area (padded on left for desktop sidebar w-72) */}
         <div className="lg:pl-72 flex flex-col min-h-screen">
-          <main className="max-w-7xl w-full mx-auto px-3 sm:px-6 lg:px-8 py-4 sm:py-8 pb-10 flex-1">
+          <main className="max-w-7xl w-full mx-auto px-3 sm:px-6 lg:px-8 py-4 sm:py-8 pb-24 lg:pb-10 flex-1">
             {activeTab === 'tasks' && <DashboardPage />}
             {activeTab === 'history' && <PersonalHistoryPage />}
             {activeTab === 'progress' && canTrackProgress && <DepartmentTrackingPage />}

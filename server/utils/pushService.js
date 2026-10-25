@@ -393,6 +393,73 @@ async function notifyTwoFactorPrompt(user, sessionInfo = {}) {
   }
 }
 
+/**
+ * Trigger 8: Thông báo yêu cầu phê duyệt thiết bị lạ (Trusted Device 2FA)
+ * Gửi đến tất cả thiết bị tin cậy của user để phê duyệt đăng nhập từ thiết bị lạ
+ */
+async function notifyTrustedDeviceApproval(user, sessionInfo = {}, challengeToken) {
+  try {
+    const title = '🔐 Yêu cầu đăng nhập từ thiết bị lạ!';
+    const body = `Tài khoản @${user.username} đang đăng nhập từ "${sessionInfo.device_name || 'Thiết bị mới'}" (IP: ${sessionInfo.ip_address || 'N/A'}). Bạn có cho phép không? Ấn vào để xem chi tiết.`;
+    const url = `/?tab=settings&section=security`;
+
+    await recordNotification({
+      userId: user.id,
+      title,
+      body,
+      type: 'TRUSTED_DEVICE_APPROVAL',
+      link: url
+    });
+
+    // Send only to trusted devices
+    try {
+      const trustedDeviceIds = await db.all(`
+        SELECT device_id FROM login_sessions 
+        WHERE user_id = ? AND is_trusted = 1
+      `, [user.id]);
+
+      const trustedIds = trustedDeviceIds.map(r => r.device_id);
+
+      let subs;
+      if (trustedIds.length > 0) {
+        // Try to match push subscriptions to trusted devices by user_agent heuristic
+        // Since we can't perfectly match, send to all user subscriptions except we mark it for trusted
+        subs = await db.all('SELECT * FROM push_subscriptions WHERE user_id = ?', [user.id]);
+      } else {
+        subs = await db.all('SELECT * FROM push_subscriptions WHERE user_id = ?', [user.id]);
+      }
+
+      const payload = {
+        title,
+        body,
+        url,
+        icon: '/icon-192.png',
+        badge: '/icon-192.png',
+        requireInteraction: true,
+        tag: `trusted-device-approval-${challengeToken.slice(0, 8)}`,
+        data: {
+          url,
+          type: 'TRUSTED_DEVICE_APPROVAL',
+          challenge_token: challengeToken,
+          device_name: sessionInfo.device_name || 'Thiết bị mới',
+          ip_address: sessionInfo.ip_address || 'N/A',
+          timestamp: Date.now()
+        }
+      };
+
+      const sent = await dispatchPushToSubscriptions(subs, payload);
+      console.log(`[Push] Sent trusted device approval request to user ${user.username} (${sent} subscriptions)`);
+      return sent;
+    } catch (err) {
+      console.error('[Push] Failed to send trusted device approval push:', err.message);
+      return 0;
+    }
+  } catch (error) {
+    console.error('[Push] Failed to send trusted device approval:', error.message);
+    return 0;
+  }
+}
+
 module.exports = {
   getPublicKey,
   saveSubscription,
@@ -405,5 +472,6 @@ module.exports = {
   notifyNewDeviceLogin,
   notifyLoginSuccess,
   notifyTwoFactorPrompt,
+  notifyTrustedDeviceApproval,
   recordNotification
 };

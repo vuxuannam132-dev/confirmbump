@@ -419,6 +419,70 @@ export default function SettingsPage() {
 
   return (
     <div className="space-y-6 max-w-4xl mx-auto w-full select-none">
+      {/* Facebook-style Profile Header */}
+      <div className="-mx-3 sm:-mx-6 lg:-mx-8 -mt-4 sm:-mt-8 mb-6">
+        {/* Cover Banner */}
+        <div className="relative h-40 sm:h-52 overflow-hidden">
+          <img 
+            src={user?.cover_url || '/anhnen.jpg'} 
+            alt="Ảnh bìa" 
+            className="w-full h-full object-cover"
+            onError={(e) => { e.target.src = '/anhnen.jpg'; }}
+          />
+          <div className="absolute inset-0 bg-gradient-to-b from-transparent to-black/40" />
+        </div>
+        
+        {/* Avatar overlapping banner */}
+        <div className="relative px-4 sm:px-6">
+          <div className="-mt-14 sm:-mt-16 mb-3 flex items-end justify-between">
+            <div className="relative">
+              <div className="w-24 h-24 sm:w-28 sm:h-28 rounded-full border-4 border-white dark:border-slate-900 bg-white dark:bg-slate-800 overflow-hidden shadow-xl">
+                <UserAvatar user={user} size="xl" className="w-full h-full" />
+              </div>
+            </div>
+          </div>
+          
+          {/* Name, username, role */}
+          <div className="mt-1">
+            <h1 className="text-xl font-black text-slate-900 dark:text-white">{user?.full_name || 'Tên thành viên'}</h1>
+            <p className="text-sm text-slate-500 dark:text-slate-400">@{user?.username}</p>
+            <div className="flex flex-wrap gap-2 mt-2">
+              <span className={`px-2.5 py-1 rounded-full text-xs font-bold ${
+                user?.role === 'ADMIN_TONG' ? 'bg-red-100 text-red-700 dark:bg-red-950/60 dark:text-red-400' :
+                user?.role === 'ADMIN_CAP_2' ? 'bg-orange-100 text-orange-700 dark:bg-orange-950/60 dark:text-orange-400' :
+                user?.role === 'KIEM_DUYET' ? 'bg-purple-100 text-purple-700 dark:bg-purple-950/60 dark:text-purple-400' :
+                'bg-blue-100 text-blue-700 dark:bg-blue-950/60 dark:text-blue-400'
+              }`}>
+                {user?.role === 'ADMIN_TONG' ? '👑 Admin Tổng' :
+                 user?.role === 'ADMIN_CAP_2' ? '🛡️ BCH' :
+                 user?.role === 'KIEM_DUYET' ? '🔍 Kiểm Duyệt' : '🌟 CTV'}
+              </span>
+              {user?.department_name && (
+                <span className="px-2.5 py-1 rounded-full text-xs font-bold bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300">
+                  📌 {user.department_name}
+                </span>
+              )}
+            </div>
+            
+            {/* Quick action buttons */}
+            <div className="flex flex-wrap gap-2 mt-4">
+              <button
+                onClick={() => document.getElementById('edit-profile-section')?.scrollIntoView({ behavior: 'smooth' })}
+                className="flex items-center space-x-1.5 px-4 py-2 rounded-full text-sm font-bold bg-blue-600 text-white hover:bg-blue-700 active:scale-95 transition-all shadow-lg shadow-blue-500/20"
+              >
+                <span>✏️ Chỉnh sửa trang cá nhân</span>
+              </button>
+              <button
+                onClick={() => document.getElementById('security-section')?.scrollIntoView({ behavior: 'smooth' })}
+                className="flex items-center space-x-1.5 px-4 py-2 rounded-full text-sm font-bold bg-slate-200 dark:bg-slate-700 text-slate-800 dark:text-slate-200 hover:bg-slate-300 dark:hover:bg-slate-600 active:scale-95 transition-all"
+              >
+                <span>🔐 Bảo mật & 2FA</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
       {/* Page Header */}
       <div className="bg-white dark:bg-slate-900 rounded-3xl p-4 sm:p-6 border border-slate-200/80 dark:border-slate-800 shadow-xs flex items-center justify-between">
         <div className="flex items-center space-x-3.5">

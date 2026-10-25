@@ -11,7 +11,8 @@ import {
   Smartphone, 
   X,
   Volume2,
-  AlertCircle
+  AlertCircle,
+  AlertTriangle
 } from 'lucide-react';
 import pushNotificationService from '../services/pushNotificationService';
 
@@ -177,65 +178,78 @@ export default function NotificationBell({ onNavigateTab }) {
 
   // Mark single notification as read & handle link
   const handleNotificationClick = async (notif) => {
-    if (notif.is_read === 0) {
-      try {
-        await pushNotificationService.markAsRead(notif.id);
-        setNotifications(prev => prev.map(n => n.id === notif.id ? { ...n, is_read: 1 } : n));
-        setUnreadCount(prev => Math.max(0, prev - 1));
-      } catch (e) {}
-    }
+    if (!notif) return;
+    try {
+      if (notif.is_read === 0) {
+        try {
+          await pushNotificationService.markAsRead(notif.id);
+          setNotifications(prev => prev.map(n => n.id === notif.id ? { ...n, is_read: 1 } : n));
+          setUnreadCount(prev => Math.max(0, prev - 1));
+        } catch (e) {}
+      }
 
-    setIsOpen(false);
+      setIsOpen(false);
 
-    if (onNavigateTab) {
-      if (notif.type === 'NEW_TASK') {
-        onNavigateTab('tasks');
-      } else if (notif.type === 'NEW_CONFIRM') {
-        onNavigateTab('review');
-      } else if (notif.type === 'CONFIRM_APPROVED' || notif.type === 'CONFIRM_REJECTED') {
-        onNavigateTab('history');
+      const notifType = notif.type || '';
+      const notifLink = notif.link || '';
+
+      if (notifType === 'NEW_TASK') {
+        onNavigateTab?.('tasks');
+      } else if (notifType === 'NEW_CONFIRM') {
+        onNavigateTab?.('review');
+      } else if (notifType === 'CONFIRM_APPROVED' || notifType === 'CONFIRM_REJECTED') {
+        onNavigateTab?.('history');
       } else if (
-        notif.type === 'NEW_DEVICE_LOGIN' || 
-        notif.type === '2FA_PROMPT' || 
-        notif.type === 'LOGIN_SUCCESS' ||
-        notif.link?.includes('tab=settings') ||
-        notif.link?.includes('security')
+        notifType === 'NEW_DEVICE_LOGIN' || 
+        notifType === '2FA_PROMPT' || 
+        notifType === 'LOGIN_SUCCESS' ||
+        notifLink.includes('tab=settings') ||
+        notifLink.includes('security')
       ) {
-        onNavigateTab('settings');
+        onNavigateTab?.('settings');
         setTimeout(() => {
-          const el = document.getElementById('device-tracking-section') || document.getElementById('security-section');
-          if (el) {
-            el.scrollIntoView({ behavior: 'smooth', block: 'center' });
-            el.classList.add('ring-4', 'ring-red-500/60', 'transition-all');
-            setTimeout(() => el.classList.remove('ring-4', 'ring-red-500/60'), 3000);
-          }
+          try {
+            const el = document.getElementById('device-tracking-section') || document.getElementById('security-section');
+            if (el) {
+              el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+              el.classList.add('ring-4', 'ring-red-500/60', 'transition-all');
+              setTimeout(() => el.classList.remove('ring-4', 'ring-red-500/60'), 3000);
+            }
+          } catch (scrollErr) {}
         }, 350);
       } else {
-        onNavigateTab('tasks');
+        onNavigateTab?.('tasks');
       }
+    } catch (err) {
+      console.warn('Notification click error:', err);
+      setIsOpen(false);
     }
   };
 
   const getNotificationIcon = (type) => {
-    switch (type) {
-      case 'NEW_TASK':
-        return <Flame className="w-4 h-4 text-orange-500 flex-shrink-0" />;
-      case 'NEW_CONFIRM':
-        return <ShieldCheck className="w-4 h-4 text-emerald-500 flex-shrink-0" />;
-      case 'ANNOUNCEMENT':
-        return <Megaphone className="w-4 h-4 text-blue-500 flex-shrink-0" />;
-      case 'CONFIRM_APPROVED':
-        return <CheckCircle2 className="w-4 h-4 text-green-500 flex-shrink-0" />;
-      case 'CONFIRM_REJECTED':
-        return <XCircle className="w-4 h-4 text-red-500 flex-shrink-0" />;
-      case 'NEW_DEVICE_LOGIN':
-        return <AlertTriangle className="w-4 h-4 text-amber-500 flex-shrink-0" />;
-      case '2FA_PROMPT':
-        return <ShieldCheck className="w-4 h-4 text-purple-500 flex-shrink-0" />;
-      case 'LOGIN_SUCCESS':
-        return <CheckCircle2 className="w-4 h-4 text-blue-500 flex-shrink-0" />;
-      default:
-        return <Bell className="w-4 h-4 text-slate-500 flex-shrink-0" />;
+    try {
+      switch (type) {
+        case 'NEW_TASK':
+          return <Flame className="w-4 h-4 text-orange-500 flex-shrink-0" />;
+        case 'NEW_CONFIRM':
+          return <ShieldCheck className="w-4 h-4 text-emerald-500 flex-shrink-0" />;
+        case 'ANNOUNCEMENT':
+          return <Megaphone className="w-4 h-4 text-blue-500 flex-shrink-0" />;
+        case 'CONFIRM_APPROVED':
+          return <CheckCircle2 className="w-4 h-4 text-green-500 flex-shrink-0" />;
+        case 'CONFIRM_REJECTED':
+          return <XCircle className="w-4 h-4 text-red-500 flex-shrink-0" />;
+        case 'NEW_DEVICE_LOGIN':
+          return <AlertTriangle className="w-4 h-4 text-amber-500 flex-shrink-0" />;
+        case '2FA_PROMPT':
+          return <ShieldCheck className="w-4 h-4 text-purple-500 flex-shrink-0" />;
+        case 'LOGIN_SUCCESS':
+          return <CheckCircle2 className="w-4 h-4 text-blue-500 flex-shrink-0" />;
+        default:
+          return <Bell className="w-4 h-4 text-slate-500 flex-shrink-0" />;
+      }
+    } catch (e) {
+      return <Bell className="w-4 h-4 text-slate-500 flex-shrink-0" />;
     }
   };
 
@@ -276,22 +290,26 @@ export default function NotificationBell({ onNavigateTab }) {
       {foregroundToast && (
         <div 
           onClick={() => {
-            const url = foregroundToast.url || '';
-            const isSecurity = foregroundToast.title?.includes('Đăng nhập') || foregroundToast.title?.includes('2FA') || url.includes('settings');
-            if (onNavigateTab) {
+            try {
+              const url = foregroundToast?.url || '';
+              const isSecurity = foregroundToast?.title?.includes('Đăng nhập') || foregroundToast?.title?.includes('2FA') || url.includes('settings');
               if (isSecurity) {
-                onNavigateTab('settings');
+                onNavigateTab?.('settings');
                 setTimeout(() => {
-                  const el = document.getElementById('device-tracking-section') || document.getElementById('security-section');
-                  if (el) {
-                    el.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                    el.classList.add('ring-4', 'ring-red-500/60', 'transition-all');
-                    setTimeout(() => el.classList.remove('ring-4', 'ring-red-500/60'), 3000);
-                  }
+                  try {
+                    const el = document.getElementById('device-tracking-section') || document.getElementById('security-section');
+                    if (el) {
+                      el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                      el.classList.add('ring-4', 'ring-red-500/60', 'transition-all');
+                      setTimeout(() => el.classList.remove('ring-4', 'ring-red-500/60'), 3000);
+                    }
+                  } catch (scrollErr) {}
                 }, 350);
               } else {
-                onNavigateTab('tasks');
+                onNavigateTab?.('tasks');
               }
+            } catch (err) {
+              console.warn('Toast click error:', err);
             }
             setForegroundToast(null);
           }}
@@ -460,37 +478,45 @@ export default function NotificationBell({ onNavigateTab }) {
                   </p>
                 </div>
               ) : (
-                filteredNotifications.map((notif) => (
-                  <div
-                    key={notif.id}
-                    onClick={() => handleNotificationClick(notif)}
-                    className={`p-3 pl-3.5 transition-colors cursor-pointer flex items-start space-x-2.5 select-none border-l-4 ${getCategoryAccentClass(notif.type)} ${
-                      notif.is_read === 0 
-                        ? 'bg-blue-50/40 dark:bg-blue-950/20 hover:bg-blue-50 dark:hover:bg-blue-950/30' 
-                        : 'hover:bg-slate-50 dark:hover:bg-slate-800/60'
-                    }`}
-                  >
-                    <div className="mt-0.5 p-1.5 rounded-lg bg-white dark:bg-slate-800 border border-slate-200/80 dark:border-slate-700/80 shadow-2xs flex-shrink-0">
-                      {getNotificationIcon(notif.type)}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center justify-between gap-1">
-                        <h4 className={`text-xs truncate ${notif.is_read === 0 ? 'font-black text-slate-900 dark:text-white' : 'font-semibold text-slate-700 dark:text-slate-300'}`}>
-                          {notif.title}
-                        </h4>
-                        <span className="text-[9px] text-slate-400 dark:text-slate-500 whitespace-nowrap flex-shrink-0">
-                          {formatTime(notif.created_at)}
-                        </span>
+                filteredNotifications.map((notif) => {
+                  try {
+                    const notifType = notif?.type || '';
+                    const isUnread = notif?.is_read === 0;
+                    return (
+                      <div
+                        key={notif?.id || Math.random()}
+                        onClick={() => handleNotificationClick(notif)}
+                        className={`p-3 pl-3.5 transition-colors cursor-pointer flex items-start space-x-2.5 select-none border-l-4 ${getCategoryAccentClass(notifType)} ${
+                          isUnread
+                            ? 'bg-blue-50/40 dark:bg-blue-950/20 hover:bg-blue-50 dark:hover:bg-blue-950/30' 
+                            : 'hover:bg-slate-50 dark:hover:bg-slate-800/60'
+                        }`}
+                      >
+                        <div className="mt-0.5 p-1.5 rounded-lg bg-white dark:bg-slate-800 border border-slate-200/80 dark:border-slate-700/80 shadow-2xs flex-shrink-0">
+                          {getNotificationIcon(notifType)}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center justify-between gap-1">
+                            <h4 className={`text-xs truncate ${isUnread ? 'font-black text-slate-900 dark:text-white' : 'font-semibold text-slate-700 dark:text-slate-300'}`}>
+                              {notif?.title || ''}
+                            </h4>
+                            <span className="text-[9px] text-slate-400 dark:text-slate-500 whitespace-nowrap flex-shrink-0">
+                              {formatTime(notif?.created_at)}
+                            </span>
+                          </div>
+                          <p className="text-[11px] text-slate-600 dark:text-slate-400 line-clamp-2 mt-0.5 leading-relaxed">
+                            {notif?.body || ''}
+                          </p>
+                        </div>
+                        {isUnread && (
+                          <span className="w-2 h-2 rounded-full bg-blue-600 flex-shrink-0 mt-1.5 shadow-xs animate-pulse" />
+                        )}
                       </div>
-                      <p className="text-[11px] text-slate-600 dark:text-slate-400 line-clamp-2 mt-0.5 leading-relaxed">
-                        {notif.body}
-                      </p>
-                    </div>
-                    {notif.is_read === 0 && (
-                      <span className="w-2 h-2 rounded-full bg-blue-600 flex-shrink-0 mt-1.5 shadow-xs animate-pulse" />
-                    )}
-                  </div>
-                ))
+                    );
+                  } catch (renderErr) {
+                    return null;
+                  }
+                })
               )}
             </div>
 

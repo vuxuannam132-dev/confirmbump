@@ -44,6 +44,11 @@ export default function LoginPage({ onNavigateRegister }) {
   const [twoFactorLoading, setTwoFactorLoading] = useState(false);
   const [twoFactorError, setTwoFactorError] = useState('');
 
+  // Trusted Device 2FA states
+  const [trustedDeviceChallenge, setTrustedDeviceChallenge] = useState(null); // { challenge_token, device_info, no_trusted_devices, setup_token }
+  const [trustedDevicePolling, setTrustedDevicePolling] = useState(false);
+  const [approvalStatus, setApprovalStatus] = useState('WAITING'); // 'WAITING' | 'APPROVED' | 'EXPIRED'
+
   // Forgot Password State
   const [isForgotPassword, setIsForgotPassword] = useState(false);
   const [forgotEmail, setForgotEmail] = useState('');
@@ -67,6 +72,68 @@ export default function LoginPage({ onNavigateRegister }) {
     return () => clearTimeout(timer);
   }, [forgotCountdown]);
 
+  // Polling for Trusted Device Approval
+  useEffect(() => {
+    if (!trustedDevicePolling || !trustedDeviceChallenge?.challenge_token) return;
+
+    let pollCount = 0;
+    const maxPolls = 150; // 5 minutes @ 2s interval
+
+    const pollInterval = setInterval(async () => {
+      pollCount++;
+      if (pollCount > maxPolls) {
+        clearInterval(pollInterval);
+        setApprovalStatus('EXPIRED');
+        setTrustedDevicePolling(false);
+        return;
+      }
+
+      try {
+        const res = await api.get(`/auth/2fa/status?token=${trustedDeviceChallenge.challenge_token}`);
+        if (res.data.status === 'APPROVED') {
+          clearInterval(pollInterval);
+          setApprovalStatus('APPROVED');
+          setTrustedDevicePolling(false);
+          if (res.data.token && res.data.user) {
+            localStorage.setItem('token', res.data.token);
+            localStorage.setItem('user', JSON.stringify(res.data.user));
+            window.location.reload();
+          }
+        } else if (res.data.status === 'EXPIRED') {
+          clearInterval(pollInterval);
+          setApprovalStatus('EXPIRED');
+          setTrustedDevicePolling(false);
+        }
+      } catch (e) {
+        // Ignore polling errors
+      }
+    }, 2000);
+
+    return () => clearInterval(pollInterval);
+  }, [trustedDevicePolling, trustedDeviceChallenge]);
+
+  const handleSetFirstTrusted = async () => {
+    try {
+      setLoading(true);
+      const { getClientDeviceId, getClientDeviceName } = await import('../services/api');
+      const res = await api.post('/auth/2fa/set-first-trusted', {
+        setup_token: trustedDeviceChallenge.setup_token,
+        device_id: getClientDeviceId(),
+        device_name: getClientDeviceName()
+      });
+
+      if (res.data.success && res.data.token && res.data.user) {
+        localStorage.setItem('token', res.data.token);
+        localStorage.setItem('user', JSON.stringify(res.data.user));
+        window.location.reload();
+      }
+    } catch (err) {
+      setError(err.response?.data?.message || 'Lỗi đăng ký thiết bị.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!username || !password) {
@@ -81,10 +148,19 @@ export default function LoginPage({ onNavigateRegister }) {
     try {
       const res = await login(username, password);
       if (res && res.require2fa) {
-        setTwoFactorChallenge(res);
-        setTwoFactorOtp('');
-        setTwoFactorError('');
-        setTrustThisDevice(true);
+        if (res.method === 'TRUSTED_DEVICE') {
+          setTrustedDeviceChallenge(res);
+          if (!res.no_trusted_devices) {
+            // Start polling for approval
+            setTrustedDevicePolling(true);
+            setApprovalStatus('WAITING');
+          }
+        } else {
+          setTwoFactorChallenge(res);
+          setTwoFactorOtp('');
+          setTwoFactorError('');
+          setTrustThisDevice(true);
+        }
       }
     } catch (err) {
       if (err.response?.data?.status === 'PENDING_APPROVAL') {
