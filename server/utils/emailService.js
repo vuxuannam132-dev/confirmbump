@@ -227,7 +227,190 @@ async function verifyOtp(email, inputCode) {
   return true;
 }
 
+/**
+ * Generate 9-digit OTP for 2FA
+ */
+function generate9DigitOtp() {
+  return Math.floor(100000000 + Math.random() * 900000000).toString();
+}
+
+/**
+ * Branded Đoàn trường HTML template for 2FA OTP
+ */
+function getTwoFactorEmailTemplate({ otpCode, deviceInfo, recipientName }) {
+  const brandTitle = 'ĐOÀN TRƯỜNG - HỆ THỐNG CONFIRM BUMP';
+  const headerColor = '#DC2626';
+  const subject = `[Đoàn Trường] Mã xác thực bảo mật 2FA (9 số): ${otpCode}`;
+
+  const greeting = recipientName 
+    ? `Xin chào đồng chí <b>${recipientName}</b>,` 
+    : `Xin chào đồng chí,`;
+
+  const formattedOtp = otpCode && otpCode.length === 9 
+    ? `${otpCode.slice(0, 3)} ${otpCode.slice(3, 6)} ${otpCode.slice(6, 9)}` 
+    : otpCode;
+
+  const deviceName = deviceInfo?.device_name || 'Thiết bị không xác định';
+  const ipAddress = deviceInfo?.ip_address || 'N/A';
+  const timeStr = new Date().toLocaleString('vi-VN', { timeZone: 'Asia/Ho_Chi_Minh' });
+
+  const html = `
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>${subject}</title>
+</head>
+<body style="margin: 0; padding: 0; background-color: #f1f5f9; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; color: #1e293b;">
+  <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background-color: #f1f5f9; padding: 30px 10px;">
+    <tr>
+      <td align="center">
+        <table role="presentation" width="100%" style="max-width: 580px; background-color: #ffffff; border-radius: 16px; overflow: hidden; box-shadow: 0 4px 16px rgba(0,0,0,0.06); border: 1px solid #e2e8f0;">
+          <!-- Top Banner Header -->
+          <tr>
+            <td style="background: linear-gradient(135deg, ${headerColor} 0%, #7f1d1d 100%); padding: 28px 24px; text-align: center;">
+              <div style="display: inline-block; width: 44px; height: 44px; line-height: 44px; border-radius: 50%; background: #ffffff; color: #dc2626; font-size: 22px; font-weight: bold; margin-bottom: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.15);">
+                🔐
+              </div>
+              <h1 style="margin: 0; font-size: 20px; font-weight: 800; color: #ffffff; letter-spacing: 0.5px; text-transform: uppercase;">
+                ${brandTitle}
+              </h1>
+              <p style="margin: 6px 0 0; font-size: 12px; color: #fecaca; text-transform: uppercase; letter-spacing: 1.5px; font-weight: 600;">
+                Xác Thực Đăng Nhập 2 Lớp (2FA)
+              </p>
+            </td>
+          </tr>
+
+          <!-- Main Content -->
+          <tr>
+            <td style="padding: 32px 28px 20px;">
+              <p style="margin: 0 0 16px; font-size: 15px; line-height: 1.6; color: #334155;">
+                ${greeting}
+              </p>
+              <p style="margin: 0 0 16px; font-size: 14px; line-height: 1.6; color: #475569;">
+                Hệ thống nhận được yêu cầu đăng nhập vào tài khoản của bạn với tính năng <b>Xác thực 2 lớp (2FA)</b> được kích hoạt.
+              </p>
+
+              <!-- Device Info Box -->
+              <div style="background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 12px 16px; margin: 16px 0;">
+                <p style="margin: 0 0 6px; font-size: 12px; font-weight: 700; color: #475569; text-transform: uppercase; letter-spacing: 0.5px;">
+                  💻 Thông tin yêu cầu đăng nhập:
+                </p>
+                <table style="width: 100%; font-size: 13px; color: #334155; line-height: 1.5;">
+                  <tr>
+                    <td style="width: 90px; color: #64748b;">Thiết bị:</td>
+                    <td><b>${deviceName}</b></td>
+                  </tr>
+                  <tr>
+                    <td style="color: #64748b;">Địa chỉ IP:</td>
+                    <td><code>${ipAddress}</code></td>
+                  </tr>
+                  <tr>
+                    <td style="color: #64748b;">Thời gian:</td>
+                    <td>${timeStr}</td>
+                  </tr>
+                </table>
+              </div>
+
+              <p style="margin: 16px 0 12px; font-size: 14px; line-height: 1.6; color: #475569;">
+                Vui lòng nhập mã OTP bảo mật <b>9 chữ số</b> dưới đây vào màn hình xác thực để tiếp tục:
+              </p>
+
+              <!-- OTP Code Display Card -->
+              <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="margin: 20px 0;">
+                <tr>
+                  <td align="center">
+                    <div style="background-color: #fef2f2; border: 2px dashed #dc2626; border-radius: 12px; padding: 18px 24px; display: inline-block; min-width: 260px;">
+                      <div style="font-size: 11px; text-transform: uppercase; font-weight: 700; color: #991b1b; letter-spacing: 1.5px; margin-bottom: 6px;">
+                        MÃ XÁC THỰC 2FA (9 SỐ)
+                      </div>
+                      <div style="font-size: 32px; font-weight: 900; letter-spacing: 6px; color: #dc2626; font-family: 'Courier New', Courier, monospace;">
+                        ${formattedOtp}
+                      </div>
+                    </div>
+                  </td>
+                </tr>
+              </table>
+
+              <!-- Notice List -->
+              <div style="background-color: #fffbeb; border-left: 4px solid #f59e0b; border-radius: 6px; padding: 14px 16px; margin-top: 24px;">
+                <p style="margin: 0 0 8px; font-size: 13px; font-weight: 700; color: #92400e;">
+                  ⚠️ Cảnh báo an ninh:
+                </p>
+                <ul style="margin: 0; padding-left: 18px; font-size: 12.5px; line-height: 1.6; color: #78350f;">
+                  <li style="margin-bottom: 6px;">Mã xác thực có hiệu lực trong vòng <b>5 phút</b>.</li>
+                  <li style="margin-bottom: 6px;">Tuyệt đối <b>không cung cấp mã này</b> cho bất kỳ ai, kể cả quản trị viên Đoàn trường.</li>
+                  <li>Nếu bạn <b>không thực hiện</b> yêu cầu đăng nhập này, rất có thể tài khoản của bạn đang bị dò mật khẩu. Vui lòng đổi mật khẩu ngay lập tức!</li>
+                </ul>
+              </div>
+            </td>
+          </tr>
+
+          <!-- Footer -->
+          <tr>
+            <td style="padding: 20px 28px 24px; border-top: 1px solid #f1f5f9; background-color: #fafafa; text-align: center;">
+              <p style="margin: 0; font-size: 12px; color: #64748b; font-weight: 600;">
+                BAN CHẤP HÀNH ĐOÀN TRƯỜNG - HỆ THỐNG CONFIRM BUMP
+              </p>
+              <p style="margin: 4px 0 0; font-size: 11px; color: #94a3b8;">
+                Bảo vệ tài khoản và tương tác mạng xã hội chính thức.
+              </p>
+              <p style="margin: 8px 0 0; font-size: 10.5px; color: #cbd5e1;">
+                Thư tự động bảo mật 2 lớp, vui lòng không trả lời thư này.
+              </p>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>
+  `;
+
+  return { subject, html };
+}
+
+/**
+ * Send 9-digit OTP for 2FA
+ */
+async function sendTwoFactorOtp(email, otpCode, deviceInfo = {}, recipientName = '') {
+  console.log('====================================================');
+  console.log('🔐 [MÃ XÁC MINH 2FA (9 SỐ) - ĐOÀN TRƯỜNG]');
+  console.log(`➡️  Gửi đến Email: ${email}`);
+  console.log(`🔑  Mã OTP 9 số:  ${otpCode}`);
+  console.log(`💻  Thiết bị:     ${deviceInfo?.device_name || 'Không xác định'} (IP: ${deviceInfo?.ip_address || 'N/A'})`);
+  console.log(`⏳  Thời hạn:     5 phút`);
+  console.log('====================================================');
+
+  const client = getTransporter();
+  if (client) {
+    try {
+      const { subject, html } = getTwoFactorEmailTemplate({ otpCode, deviceInfo, recipientName });
+      const fromName = process.env.SMTP_FROM_NAME || 'Đoàn Trường - Confirm Bump Bảo Mật';
+      const sender = `"${fromName}" <${process.env.SMTP_USER}>`;
+
+      await client.sendMail({
+        from: sender,
+        to: email,
+        subject,
+        html
+      });
+      console.log(`✅ Đã gửi email 2FA (9 số) thành công đến: ${email}`);
+    } catch (mailErr) {
+      console.warn(`⚠️ Không thể gửi mail 2FA qua SMTP (${mailErr.message}) - Sẽ hiển thị mã OTP trên giao diện/console.`);
+    }
+  } else {
+    console.log('ℹ️ SMTP chưa được cấu hình, mã OTP 2FA được trả về/ghi nhận trong console.');
+  }
+
+  return { success: true, otpCode };
+}
+
 module.exports = {
   generateAndSendOtp,
-  verifyOtp
+  verifyOtp,
+  generate9DigitOtp,
+  sendTwoFactorOtp
 };

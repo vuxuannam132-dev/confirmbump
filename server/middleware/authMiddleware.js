@@ -14,6 +14,7 @@ async function verifyToken(req, res, next) {
     const decoded = jwt.verify(token, JWT_SECRET);
     const user = await db.get(`
       SELECT u.id, u.username, u.full_name, u.email, u.facebook_url, u.role, u.department_id, u.status,
+             u.avatar_url, u.two_factor_enabled, u.two_factor_method,
              d.name as department_name, d.code as department_code, d.color as department_color
       FROM users u
       LEFT JOIN departments d ON u.department_id = d.id

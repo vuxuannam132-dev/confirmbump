@@ -285,6 +285,114 @@ async function notifyConfirmResult(submission, status, feedback) {
   }
 }
 
+/**
+ * Trigger 5: Cảnh báo đăng nhập từ thiết bị mới
+ */
+async function notifyNewDeviceLogin(user, sessionInfo = {}) {
+  const deviceName = sessionInfo.device_name || 'Thiết bị mới';
+  const ipAddress = sessionInfo.ip_address || 'N/A';
+  const title = '⚠️ Cảnh báo: Đăng nhập từ thiết bị mới!';
+  const body = `Tài khoản ${user.username} vừa đăng nhập trên ${deviceName} (IP: ${ipAddress}). Nếu không phải bạn, hãy đổi mật khẩu ngay!`;
+  const url = '/';
+
+  // 1. Record in-app notification
+  await recordNotification({
+    userId: user.id,
+    title,
+    body,
+    type: 'NEW_DEVICE_LOGIN',
+    link: url
+  });
+
+  // 2. Web push to user's registered devices
+  try {
+    const subs = await db.all('SELECT * FROM push_subscriptions WHERE user_id = ?', [user.id]);
+    const payload = {
+      title,
+      body,
+      url,
+      icon: '/icon-192.png',
+      badge: '/icon-192.png',
+      tag: `new-device-${Date.now()}`,
+      data: { url, type: 'NEW_DEVICE_LOGIN' }
+    };
+    return await dispatchPushToSubscriptions(subs, payload);
+  } catch (err) {
+    console.error('Error sending notifyNewDeviceLogin:', err);
+    return 0;
+  }
+}
+
+/**
+ * Trigger 6: Thông báo đăng nhập thành công
+ */
+async function notifyLoginSuccess(user, sessionInfo = {}) {
+  const deviceName = sessionInfo.device_name || 'thiết bị của bạn';
+  const title = '🔔 Đăng nhập thành công';
+  const body = `Tài khoản ${user.username} vừa đăng nhập thành công trên ${deviceName}.`;
+  const url = '/';
+
+  await recordNotification({
+    userId: user.id,
+    title,
+    body,
+    type: 'LOGIN_SUCCESS',
+    link: url
+  });
+
+  try {
+    const subs = await db.all('SELECT * FROM push_subscriptions WHERE user_id = ?', [user.id]);
+    const payload = {
+      title,
+      body,
+      url,
+      icon: '/icon-192.png',
+      badge: '/icon-192.png',
+      tag: `login-success-${Date.now()}`,
+      data: { url }
+    };
+    return await dispatchPushToSubscriptions(subs, payload);
+  } catch (err) {
+    console.error('Error sending notifyLoginSuccess:', err);
+    return 0;
+  }
+}
+
+/**
+ * Trigger 7: Thông báo yêu cầu xác thực 2FA
+ */
+async function notifyTwoFactorPrompt(user, sessionInfo = {}) {
+  const deviceName = sessionInfo.device_name || 'thiết bị';
+  const title = '🔐 Yêu cầu xác thực 2FA';
+  const body = `Có yêu cầu đăng nhập trên ${deviceName}. Vui lòng kiểm tra mã xác thực để tiếp tục.`;
+  const url = '/';
+
+  await recordNotification({
+    userId: user.id,
+    title,
+    body,
+    type: '2FA_PROMPT',
+    link: url
+  });
+
+  try {
+    const subs = await db.all('SELECT * FROM push_subscriptions WHERE user_id = ?', [user.id]);
+    const payload = {
+      title,
+      body,
+      url,
+      icon: '/icon-192.png',
+      badge: '/icon-192.png',
+      tag: `2fa-prompt-${Date.now()}`,
+      data: { url, type: '2FA_PROMPT' }
+    };
+    return await dispatchPushToSubscriptions(subs, payload);
+  } catch (err) {
+    console.error('Error sending notifyTwoFactorPrompt:', err);
+    return 0;
+  }
+}
+
 module.exports = {
   getPublicKey,
   saveSubscription,
@@ -294,5 +402,8 @@ module.exports = {
   notifyNewConfirm,
   notifyBroadcast,
   notifyConfirmResult,
+  notifyNewDeviceLogin,
+  notifyLoginSuccess,
+  notifyTwoFactorPrompt,
   recordNotification
 };

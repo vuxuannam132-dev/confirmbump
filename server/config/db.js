@@ -206,7 +206,41 @@ async function initDb() {
             role VARCHAR(50) NOT NULL DEFAULT 'USER',
             department_id INTEGER REFERENCES departments(id),
             status VARCHAR(50) NOT NULL DEFAULT 'PENDING_APPROVAL',
+            avatar_url TEXT,
+            two_factor_enabled INTEGER DEFAULT 0,
+            two_factor_method VARCHAR(50) DEFAULT 'EMAIL',
             created_by INTEGER REFERENCES users(id),
+            created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
+          );
+        `);
+
+        await db.exec(`
+          CREATE TABLE IF NOT EXISTS login_sessions (
+            id SERIAL PRIMARY KEY,
+            user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+            device_id VARCHAR(100),
+            device_name VARCHAR(100),
+            os_name VARCHAR(50),
+            browser_name VARCHAR(50),
+            ip_address VARCHAR(100),
+            location_text VARCHAR(100) DEFAULT 'Việt Nam',
+            is_trusted INTEGER DEFAULT 0,
+            is_online INTEGER DEFAULT 1,
+            last_seen TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+            created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
+          );
+        `);
+
+        await db.exec(`
+          CREATE TABLE IF NOT EXISTS two_factor_challenges (
+            id SERIAL PRIMARY KEY,
+            user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+            challenge_token VARCHAR(100) UNIQUE NOT NULL,
+            otp_code VARCHAR(10) NOT NULL,
+            method VARCHAR(50) DEFAULT 'EMAIL',
+            device_info TEXT,
+            is_verified INTEGER DEFAULT 0,
+            expires_at TIMESTAMPTZ NOT NULL,
             created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
           );
         `);
@@ -297,7 +331,37 @@ async function initDb() {
             role TEXT NOT NULL DEFAULT 'USER',
             department_id INTEGER REFERENCES departments(id),
             status TEXT NOT NULL DEFAULT 'PENDING_APPROVAL',
+            avatar_url TEXT,
+            two_factor_enabled INTEGER DEFAULT 0,
+            two_factor_method TEXT DEFAULT 'EMAIL',
             created_by INTEGER REFERENCES users(id),
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+          );
+
+          CREATE TABLE IF NOT EXISTS login_sessions (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+            device_id TEXT,
+            device_name TEXT,
+            os_name TEXT,
+            browser_name TEXT,
+            ip_address TEXT,
+            location_text TEXT DEFAULT 'Việt Nam',
+            is_trusted INTEGER DEFAULT 0,
+            is_online INTEGER DEFAULT 1,
+            last_seen DATETIME DEFAULT CURRENT_TIMESTAMP,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+          );
+
+          CREATE TABLE IF NOT EXISTS two_factor_challenges (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+            challenge_token TEXT UNIQUE NOT NULL,
+            otp_code TEXT NOT NULL,
+            method TEXT DEFAULT 'EMAIL',
+            device_info TEXT,
+            is_verified INTEGER DEFAULT 0,
+            expires_at DATETIME NOT NULL,
             created_at DATETIME DEFAULT CURRENT_TIMESTAMP
           );
 
@@ -352,6 +416,42 @@ async function initDb() {
             created_at DATETIME DEFAULT CURRENT_TIMESTAMP
           );
         `);
+      }
+
+      // Check and alter users table to add new security columns if not exists
+      const alterCols = [
+        { name: 'avatar_url', pgType: 'TEXT', sqliteType: 'TEXT' },
+        { name: 'two_factor_enabled', pgType: 'INTEGER DEFAULT 0', sqliteType: 'INTEGER DEFAULT 0' },
+        { name: 'two_factor_method', pgType: "VARCHAR(50) DEFAULT 'EMAIL'", sqliteType: "TEXT DEFAULT 'EMAIL'" }
+      ];
+
+      for (const col of alterCols) {
+        try {
+          if (isPg) {
+            await db.exec(`ALTER TABLE users ADD COLUMN IF NOT EXISTS ${col.name} ${col.pgType};`);
+          } else {
+            try {
+              sqliteDb.exec(`ALTER TABLE users ADD COLUMN ${col.name} ${col.sqliteType};`);
+            } catch (e) {
+              // Column might already exist in SQLite
+            }
+          }
+        } catch (e) {
+          // Ignore
+        }
+      }
+
+      // Optional indexes for performance
+      try {
+        if (isPg) {
+          await db.exec(`CREATE INDEX IF NOT EXISTS idx_login_sessions_user_id ON login_sessions(user_id);`);
+          await db.exec(`CREATE INDEX IF NOT EXISTS idx_2fa_challenges_token ON two_factor_challenges(challenge_token);`);
+        } else {
+          sqliteDb.exec(`CREATE INDEX IF NOT EXISTS idx_login_sessions_user_id ON login_sessions(user_id);`);
+          sqliteDb.exec(`CREATE INDEX IF NOT EXISTS idx_2fa_challenges_token ON two_factor_challenges(challenge_token);`);
+        }
+      } catch (idxErr) {
+        // Ignore index errors
       }
 
       // Ensure 4 official departments exist

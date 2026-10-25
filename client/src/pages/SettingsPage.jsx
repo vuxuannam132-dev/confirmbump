@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
-import api from '../services/api';
+import api, { getClientDeviceId, getClientDeviceName } from '../services/api';
 import pushNotificationService from '../services/pushNotificationService';
 import DepartmentBadge from '../components/DepartmentBadge';
+import UserAvatar, { AVATAR_PRESETS, renderPresetIcon } from '../components/UserAvatar';
 import { 
   Settings, 
   Sun, 
@@ -15,6 +16,7 @@ import {
   User, 
   Mail, 
   Shield, 
+  ShieldCheck,
   Trash2, 
   CheckCircle2, 
   AlertTriangle,
@@ -29,12 +31,53 @@ import {
   Server,
   Bell,
   Smartphone,
-  Info
+  Laptop,
+  Monitor,
+  Globe,
+  MapPin,
+  Clock,
+  Camera,
+  Image as ImageIcon,
+  Flame,
+  Star,
+  Trophy,
+  Crown,
+  Heart,
+  Zap,
+  Compass,
+  Info,
+  LogOut,
+  Sliders
 } from 'lucide-react';
 
 export default function SettingsPage() {
-  const { user, deleteMyAccount } = useAuth();
+  const { user, updateUser, deleteMyAccount } = useAuth();
   const { theme, setTheme } = useTheme();
+
+  // Avatar States
+  const [selectedAvatar, setSelectedAvatar] = useState(user?.avatar_url || 'icon:flame:#EF4444');
+  const [avatarTab, setAvatarTab] = useState(
+    user?.avatar_url && !user.avatar_url.startsWith('icon:') ? 'custom' : 'preset'
+  );
+  const [customAvatarUrl, setCustomAvatarUrl] = useState(
+    user?.avatar_url && !user.avatar_url.startsWith('icon:') ? user.avatar_url : ''
+  );
+  const [avatarLoading, setAvatarLoading] = useState(false);
+  const [avatarMsg, setAvatarMsg] = useState(null);
+
+  // Device Sessions States
+  const [sessions, setSessions] = useState([]);
+  const [sessionsLoading, setSessionsLoading] = useState(false);
+  const [sessionActionId, setSessionActionId] = useState(null);
+  const [sessionMsg, setSessionMsg] = useState(null);
+
+  // 2FA States
+  const [twoFactorEnabled, setTwoFactorEnabled] = useState(
+    user?.two_factor_enabled === 1 || user?.two_factor_enabled === true
+  );
+  const [twoFactorMethod, setTwoFactorMethod] = useState(user?.two_factor_method || 'EMAIL');
+  const [twoFactorLoading, setTwoFactorLoading] = useState(false);
+  const [twoFactorMsg, setTwoFactorMsg] = useState(null);
 
   // Change password states
   const [currentPassword, setCurrentPassword] = useState('');
@@ -63,13 +106,21 @@ export default function SettingsPage() {
   const [isPushSubscribed, setIsPushSubscribed] = useState(false);
   const [pushLoading, setPushLoading] = useState(false);
   const [pushMessage, setPushMessage] = useState(null);
+  const [testingPush, setTestingPush] = useState(false);
 
-  const deviceEnv = pushNotificationService.getDeviceEnvironment();
+  const currentDeviceId = getClientDeviceId();
   const isPushSupported = pushNotificationService.isSupported();
 
   useEffect(() => {
     checkPushStatus();
+    fetchSessions();
   }, []);
+
+  useEffect(() => {
+    if (user?.role === 'ADMIN_TONG') {
+      fetchStorageStatus();
+    }
+  }, [user]);
 
   const checkPushStatus = async () => {
     if (!isPushSupported) return;
@@ -101,8 +152,6 @@ export default function SettingsPage() {
     }
   };
 
-  const [testingPush, setTestingPush] = useState(false);
-
   const handleTestPush = async () => {
     setTestingPush(true);
     setPushMessage(null);
@@ -122,12 +171,6 @@ export default function SettingsPage() {
       setTestingPush(false);
     }
   };
-
-  useEffect(() => {
-    if (user?.role === 'ADMIN_TONG') {
-      fetchStorageStatus();
-    }
-  }, [user]);
 
   const fetchStorageStatus = async (runTest = false) => {
     try {
@@ -150,6 +193,142 @@ export default function SettingsPage() {
     navigator.clipboard.writeText('IMGBB_API_KEY');
     setCopiedKey(true);
     setTimeout(() => setCopiedKey(false), 2000);
+  };
+
+  const fetchSessions = async () => {
+    setSessionsLoading(true);
+    try {
+      const res = await api.get('/auth/sessions');
+      if (res.data.success) {
+        setSessions(res.data.sessions || []);
+      }
+    } catch (e) {
+      console.warn('Error fetching sessions:', e);
+    } finally {
+      setSessionsLoading(false);
+    }
+  };
+
+  const handleTrustSession = async (session) => {
+    setSessionActionId(session.id);
+    setSessionMsg(null);
+    try {
+      const res = await api.post('/auth/sessions/trust', { session_id: session.id, device_id: session.device_id });
+      if (res.data.success) {
+        setSessionMsg({ type: 'success', text: `Đã đánh dấu "${session.device_name}" là thiết bị tin cậy!` });
+        fetchSessions();
+      }
+    } catch (err) {
+      setSessionMsg({ type: 'error', text: err.response?.data?.message || err.message });
+    } finally {
+      setSessionActionId(null);
+    }
+  };
+
+  const handleRevokeSession = async (session) => {
+    if (!window.confirm(`Bạn có chắc muốn thu hồi phiên đăng nhập trên "${session.device_name}"?`)) return;
+    setSessionActionId(session.id);
+    setSessionMsg(null);
+    try {
+      const res = await api.post('/auth/sessions/revoke', { session_id: session.id, device_id: session.device_id });
+      if (res.data.success) {
+        setSessionMsg({ type: 'success', text: 'Đã thu hồi phiên đăng nhập thành công!' });
+        fetchSessions();
+      }
+    } catch (err) {
+      setSessionMsg({ type: 'error', text: err.response?.data?.message || err.message });
+    } finally {
+      setSessionActionId(null);
+    }
+  };
+
+  const handleToggle2FA = async (newEnabled, newMethod = twoFactorMethod) => {
+    setTwoFactorLoading(true);
+    setTwoFactorMsg(null);
+    try {
+      const res = await api.post('/auth/2fa/toggle', { enabled: newEnabled, method: newMethod });
+      if (res.data.success) {
+        setTwoFactorEnabled(newEnabled);
+        setTwoFactorMethod(newMethod);
+        if (updateUser) {
+          updateUser({ two_factor_enabled: newEnabled ? 1 : 0, two_factor_method: newMethod });
+        }
+        setTwoFactorMsg({ type: 'success', text: res.data.message });
+      }
+    } catch (err) {
+      setTwoFactorMsg({ type: 'error', text: err.response?.data?.message || err.message });
+    } finally {
+      setTwoFactorLoading(false);
+    }
+  };
+
+  const handleSaveAvatar = async () => {
+    const avatarToSave = avatarTab === 'preset' ? selectedAvatar : customAvatarUrl.trim();
+    if (!avatarToSave) {
+      setAvatarMsg({ type: 'error', text: 'Vui lòng chọn hoặc tải ảnh đại diện hợp lệ.' });
+      return;
+    }
+    setAvatarLoading(true);
+    setAvatarMsg(null);
+    try {
+      const res = await api.post('/auth/update-avatar', { avatar_url: avatarToSave });
+      if (res.data.success) {
+        if (updateUser) {
+          updateUser({ avatar_url: avatarToSave });
+        }
+        setAvatarMsg({ type: 'success', text: '🎉 Cập nhật ảnh đại diện thành công!' });
+      }
+    } catch (err) {
+      setAvatarMsg({ type: 'error', text: err.response?.data?.message || err.message });
+    } finally {
+      setAvatarLoading(false);
+    }
+  };
+
+  const handleFileUploadAvatar = (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (file.size > 4 * 1024 * 1024) {
+      setAvatarMsg({ type: 'error', text: 'Ảnh tải lên vượt quá 4MB. Vui lòng chọn ảnh nhỏ hơn.' });
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const base64 = event.target?.result;
+      if (base64) {
+        setCustomAvatarUrl(base64);
+        setSelectedAvatar(base64);
+        setAvatarTab('custom');
+      }
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const getDeviceIcon = (osName = '', browserName = '') => {
+    const lower = (osName + ' ' + browserName).toLowerCase();
+    if (lower.includes('ios') || lower.includes('iphone') || lower.includes('android')) {
+      return <Smartphone className="w-5 h-5 text-blue-600 dark:text-blue-400" />;
+    }
+    if (lower.includes('mac') || lower.includes('laptop')) {
+      return <Laptop className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />;
+    }
+    return <Monitor className="w-5 h-5 text-slate-600 dark:text-slate-400" />;
+  };
+
+  const formatSessionDate = (dateStr) => {
+    if (!dateStr) return 'Vừa mới đây';
+    try {
+      const d = new Date(dateStr);
+      return d.toLocaleString('vi-VN', {
+        hour: '2-digit',
+        minute: '2-digit',
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric'
+      });
+    } catch (e) {
+      return dateStr;
+    }
   };
 
   const roleText = user?.role === 'ADMIN_TONG' 
@@ -219,19 +398,19 @@ export default function SettingsPage() {
   };
 
   return (
-    <div className="space-y-5 max-w-4xl mx-auto w-full overflow-hidden">
-      {/* Header */}
-      <div className="bg-white dark:bg-slate-900 rounded-3xl p-4 sm:p-7 border border-slate-200/80 dark:border-slate-800 shadow-xs flex items-center justify-between">
+    <div className="space-y-6 max-w-4xl mx-auto w-full select-none">
+      {/* Page Header */}
+      <div className="bg-white dark:bg-slate-900 rounded-3xl p-4 sm:p-6 border border-slate-200/80 dark:border-slate-800 shadow-xs flex items-center justify-between">
         <div className="flex items-center space-x-3.5">
           <div className="w-11 h-11 sm:w-12 sm:h-12 rounded-2xl bg-red-50 dark:bg-red-950/50 text-red-600 dark:text-red-400 flex items-center justify-center shadow-xs flex-shrink-0">
-            <Settings className="w-5 h-5 sm:w-6 sm:h-6 animate-[spin_6s_linear_infinite]" />
+            <Settings className="w-5 h-5 sm:w-6 sm:h-6" />
           </div>
           <div className="min-w-0">
             <h1 className="text-base sm:text-xl font-black text-slate-900 dark:text-white truncate">
-              Cài Đặt Hệ Thống & Tài Khoản
+              Cài Đặt Hệ Thống & Bảo Mật
             </h1>
             <p className="text-[11px] sm:text-xs text-slate-500 dark:text-slate-400 font-medium truncate">
-              Tùy chỉnh giao diện, đổi mật khẩu và quản lý thông tin
+              Avatar, xác thực 2FA, theo dõi thiết bị đăng nhập và đổi mật khẩu
             </p>
           </div>
         </div>
@@ -241,7 +420,433 @@ export default function SettingsPage() {
         </span>
       </div>
 
-      {/* 1. Giao diện (Theme Selection) */}
+      {/* ========================================================================= */}
+      {/* 1. HỒ SƠ & ẢNH ĐẠI DIỆN (AVATAR SYSTEM) */}
+      {/* ========================================================================= */}
+      <div className="bg-white dark:bg-slate-900 rounded-3xl p-4 sm:p-6 border border-slate-200/80 dark:border-slate-800 shadow-xs space-y-4">
+        <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
+          <div className="flex items-center space-x-2.5">
+            <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-purple-500 to-indigo-600 text-white flex items-center justify-center shadow-xs">
+              <Camera className="w-5 h-5" />
+            </div>
+            <div>
+              <h2 className="text-sm sm:text-base font-black text-slate-900 dark:text-white">
+                Ảnh Đại Diện (Avatar Cá Nhân)
+              </h2>
+              <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                Chọn biểu tượng sắc màu đặc trưng hoặc tải ảnh chân dung tùy thích
+              </p>
+            </div>
+          </div>
+        </div>
+
+        {avatarMsg && (
+          <div className={`p-3 rounded-2xl text-xs font-bold border animate-in fade-in ${
+            avatarMsg.type === 'success'
+              ? 'bg-emerald-50 text-emerald-800 border-emerald-200 dark:bg-emerald-950/50 dark:text-emerald-300'
+              : 'bg-red-50 text-red-800 border-red-200 dark:bg-red-950/50 dark:text-red-300'
+          }`}>
+            {avatarMsg.text}
+          </div>
+        )}
+
+        <div className="flex flex-col sm:flex-row items-center sm:items-start gap-6 pt-2">
+          {/* Preview Current Avatar */}
+          <div className="flex flex-col items-center space-y-2 flex-shrink-0">
+            <div className="relative group">
+              <UserAvatar 
+                user={{ ...user, avatar_url: avatarTab === 'preset' ? selectedAvatar : (customAvatarUrl || user?.avatar_url) }} 
+                size="xl" 
+                className="ring-4 ring-slate-100 dark:ring-slate-800 shadow-lg"
+              />
+              <span className="absolute -bottom-1 -right-1 p-1 bg-white dark:bg-slate-800 rounded-full shadow-md text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700">
+                <Sparkles className="w-3.5 h-3.5 text-yellow-500" />
+              </span>
+            </div>
+            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+              Xem trước
+            </span>
+          </div>
+
+          {/* Controls */}
+          <div className="flex-1 w-full space-y-3">
+            {/* Tabs: Preset vs Custom */}
+            <div className="flex p-1 bg-slate-100 dark:bg-slate-800/80 rounded-2xl max-w-sm">
+              <button
+                type="button"
+                onClick={() => setAvatarTab('preset')}
+                className={`flex-1 py-1.5 px-3 rounded-xl text-xs font-black transition-all ${
+                  avatarTab === 'preset'
+                    ? 'bg-white dark:bg-slate-900 text-slate-900 dark:text-white shadow-xs'
+                    : 'text-slate-500 dark:text-slate-400 hover:text-slate-800'
+                }`}
+              >
+                ✨ Biểu Tượng Sắc Màu
+              </button>
+              <button
+                type="button"
+                onClick={() => setAvatarTab('custom')}
+                className={`flex-1 py-1.5 px-3 rounded-xl text-xs font-black transition-all ${
+                  avatarTab === 'custom'
+                    ? 'bg-white dark:bg-slate-900 text-slate-900 dark:text-white shadow-xs'
+                    : 'text-slate-500 dark:text-slate-400 hover:text-slate-800'
+                }`}
+              >
+                🖼️ Tải Ảnh Lên / Link
+              </button>
+            </div>
+
+            {/* Mode 1: Presets Picker */}
+            {avatarTab === 'preset' ? (
+              <div className="space-y-2">
+                <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                  Chọn biểu tượng phù hợp với phong cách của bạn trong Đoàn:
+                </p>
+                <div className="grid grid-cols-5 sm:grid-cols-5 gap-2.5 max-w-md">
+                  {AVATAR_PRESETS.map((preset) => {
+                    const isSelected = selectedAvatar === preset.id;
+                    return (
+                      <button
+                        key={preset.id}
+                        type="button"
+                        onClick={() => setSelectedAvatar(preset.id)}
+                        className={`flex flex-col items-center p-2 rounded-2xl border-2 transition-all active:scale-95 ${
+                          isSelected
+                            ? 'border-blue-600 bg-blue-50/60 dark:bg-blue-950/40 ring-2 ring-blue-500/30'
+                            : 'border-slate-200 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700 bg-slate-50 dark:bg-slate-800/40'
+                        }`}
+                        title={preset.name}
+                      >
+                        <div 
+                          className="w-9 h-9 rounded-xl flex items-center justify-center text-white shadow-xs mb-1"
+                          style={{ backgroundColor: preset.color }}
+                        >
+                          {renderPresetIcon(preset.icon, 'w-5 h-5 text-white fill-white/20')}
+                        </div>
+                        <span className="text-[9px] font-bold text-slate-600 dark:text-slate-300 truncate w-full text-center">
+                          {preset.name}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            ) : (
+              /* Mode 2: Custom upload / URL */
+              <div className="space-y-3 max-w-md">
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase mb-1">
+                    Tải ảnh từ máy tính / điện thoại:
+                  </label>
+                  <label className="flex items-center justify-center space-x-2 px-4 py-2.5 border-2 border-dashed border-slate-300 dark:border-slate-700 rounded-2xl hover:border-blue-500 cursor-pointer bg-slate-50 dark:bg-slate-800/50 transition-colors">
+                    <UploadCloud className="w-4 h-4 text-blue-600" />
+                    <span className="text-xs font-bold text-slate-700 dark:text-slate-300">
+                      Chọn file ảnh từ thiết bị
+                    </span>
+                    <input 
+                      type="file" 
+                      accept="image/*" 
+                      className="hidden" 
+                      onChange={handleFileUploadAvatar}
+                    />
+                  </label>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase mb-1">
+                    Hoặc dán URL ảnh trực tiếp:
+                  </label>
+                  <input
+                    type="url"
+                    value={customAvatarUrl}
+                    onChange={(e) => {
+                      setCustomAvatarUrl(e.target.value);
+                      setSelectedAvatar(e.target.value);
+                    }}
+                    placeholder="https://example.com/avatar.jpg"
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-xs text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+              </div>
+            )}
+
+            <div className="pt-2">
+              <button
+                type="button"
+                onClick={handleSaveAvatar}
+                disabled={avatarLoading}
+                className="px-5 py-2.5 rounded-xl text-xs font-extrabold text-white bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 shadow-md shadow-blue-200 dark:shadow-none transition-all active:scale-95 disabled:opacity-50 inline-flex items-center space-x-1.5"
+              >
+                <Check className="w-3.5 h-3.5" />
+                <span>{avatarLoading ? 'Đang lưu...' : 'Lưu Ảnh Đại Diện'}</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* ========================================================================= */}
+      {/* 2. BẢO MẬT & XÁC THỰC 2 LỚP (2FA) */}
+      {/* ========================================================================= */}
+      <div className="bg-white dark:bg-slate-900 rounded-3xl p-4 sm:p-6 border border-slate-200/80 dark:border-slate-800 shadow-xs space-y-4">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-100 dark:border-slate-800">
+          <div className="flex items-center space-x-2.5">
+            <div className="w-9 h-9 rounded-xl bg-blue-100 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400 flex items-center justify-center flex-shrink-0">
+              <ShieldCheck className="w-5 h-5" />
+            </div>
+            <div>
+              <h2 className="text-sm sm:text-base font-black text-slate-900 dark:text-white">
+                Xác Thực 2 Lớp Bảo Mật (2FA)
+              </h2>
+              <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                Bảo vệ tài khoản an toàn tuyệt đối khi đăng nhập từ thiết bị lạ
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-center space-x-2.5">
+            <span className={`text-[10px] font-black uppercase px-2.5 py-1 rounded-full ${
+              twoFactorEnabled 
+                ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/80 dark:text-emerald-300' 
+                : 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400'
+            }`}>
+              {twoFactorEnabled ? '🛡️ 2FA Đang Bật' : '⚠️ 2FA Đang Tắt'}
+            </span>
+
+            <button
+              type="button"
+              onClick={() => handleToggle2FA(!twoFactorEnabled)}
+              disabled={twoFactorLoading}
+              className={`px-4 py-2 rounded-xl text-xs font-black transition-all active:scale-95 disabled:opacity-50 ${
+                twoFactorEnabled
+                  ? 'bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-300'
+                  : 'bg-blue-600 text-white hover:bg-blue-700 shadow-sm'
+              }`}
+            >
+              {twoFactorLoading ? 'Đang cập nhật...' : (twoFactorEnabled ? 'Tắt 2FA' : 'Kích Hoạt 2FA Ngay')}
+            </button>
+          </div>
+        </div>
+
+        {twoFactorMsg && (
+          <div className={`p-3 rounded-2xl text-xs font-bold border animate-in fade-in ${
+            twoFactorMsg.type === 'success'
+              ? 'bg-emerald-50 text-emerald-800 border-emerald-200 dark:bg-emerald-950/50 dark:text-emerald-300'
+              : 'bg-red-50 text-red-800 border-red-200 dark:bg-red-950/50 dark:text-red-300'
+          }`}>
+            {twoFactorMsg.text}
+          </div>
+        )}
+
+        {/* 2FA Method Selector */}
+        <div className="space-y-3 pt-1">
+          <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase">
+            Phương thức xác minh danh tính khi có đăng nhập mới:
+          </label>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            {/* Method 1: Email 9-digit OTP */}
+            <div
+              onClick={() => {
+                if (twoFactorEnabled) handleToggle2FA(true, 'EMAIL');
+                else setTwoFactorMethod('EMAIL');
+              }}
+              className={`cursor-pointer p-4 rounded-2xl border-2 transition-all ${
+                twoFactorMethod === 'EMAIL'
+                  ? 'border-blue-600 bg-blue-50/50 dark:bg-blue-950/30 ring-2 ring-blue-500/20'
+                  : 'border-slate-200 dark:border-slate-800 hover:border-slate-300 bg-slate-50/50 dark:bg-slate-800/30'
+              }`}
+            >
+              <div className="flex items-center justify-between mb-2">
+                <div className="w-8 h-8 rounded-xl bg-blue-100 text-blue-600 flex items-center justify-center">
+                  <Mail className="w-4 h-4" />
+                </div>
+                <span className="text-[10px] font-black uppercase text-blue-600 bg-blue-100 dark:bg-blue-900/60 px-2 py-0.5 rounded-full">
+                  Khuyên Dùng
+                </span>
+              </div>
+              <h4 className="font-extrabold text-xs text-slate-900 dark:text-white">
+                Mã OTP 9 số qua Email
+              </h4>
+              <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1">
+                Gửi mã xác thực 9 số ngẫu nhiên về email đã đăng ký của bạn ({user?.email}) mỗi khi phát hiện thiết bị lạ.
+              </p>
+            </div>
+
+            {/* Method 2: Trusted Device Prompt */}
+            <div
+              onClick={() => {
+                if (twoFactorEnabled) handleToggle2FA(true, 'TRUSTED_DEVICE');
+                else setTwoFactorMethod('TRUSTED_DEVICE');
+              }}
+              className={`cursor-pointer p-4 rounded-2xl border-2 transition-all ${
+                twoFactorMethod === 'TRUSTED_DEVICE'
+                  ? 'border-blue-600 bg-blue-50/50 dark:bg-blue-950/30 ring-2 ring-blue-500/20'
+                  : 'border-slate-200 dark:border-slate-800 hover:border-slate-300 bg-slate-50/50 dark:bg-slate-800/30'
+              }`}
+            >
+              <div className="flex items-center justify-between mb-2">
+                <div className="w-8 h-8 rounded-xl bg-purple-100 text-purple-600 flex items-center justify-center">
+                  <Smartphone className="w-4 h-4" />
+                </div>
+                <span className="text-[10px] font-black uppercase text-purple-600 bg-purple-100 dark:bg-purple-900/60 px-2 py-0.5 rounded-full">
+                  Tiện Lợi
+                </span>
+              </div>
+              <h4 className="font-extrabold text-xs text-slate-900 dark:text-white">
+                Xác Thực Qua Thiết Bị Tin Cậy
+              </h4>
+              <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1">
+                Chỉ điện thoại / máy tính được đánh dấu là "Thiết bị tin cậy" mới đăng nhập được ngay mà không cần chờ OTP.
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* ========================================================================= */}
+      {/* 3. THEO DÕI THIẾT BỊ & LỊCH SỬ ĐĂNG NHẬP */}
+      {/* ========================================================================= */}
+      <div className="bg-white dark:bg-slate-900 rounded-3xl p-4 sm:p-6 border border-slate-200/80 dark:border-slate-800 shadow-xs space-y-4">
+        <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
+          <div className="flex items-center space-x-2.5">
+            <div className="w-9 h-9 rounded-xl bg-indigo-100 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 flex items-center justify-center flex-shrink-0">
+              <Monitor className="w-5 h-5" />
+            </div>
+            <div>
+              <h2 className="text-sm sm:text-base font-black text-slate-900 dark:text-white">
+                Theo Dõi Thiết Bị & Lịch Sử Đăng Nhập
+              </h2>
+              <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                Quản lý các máy đang truy cập, đánh dấu thiết bị tin cậy hoặc thu hồi quyền truy cập
+              </p>
+            </div>
+          </div>
+
+          <button
+            type="button"
+            onClick={fetchSessions}
+            disabled={sessionsLoading}
+            className="p-2 rounded-xl text-slate-500 hover:text-slate-800 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+            title="Làm mới danh sách thiết bị"
+          >
+            <RefreshCw className={`w-4 h-4 ${sessionsLoading ? 'animate-spin text-blue-600' : ''}`} />
+          </button>
+        </div>
+
+        {sessionMsg && (
+          <div className={`p-3 rounded-2xl text-xs font-bold border animate-in fade-in ${
+            sessionMsg.type === 'success'
+              ? 'bg-emerald-50 text-emerald-800 border-emerald-200 dark:bg-emerald-950/50 dark:text-emerald-300'
+              : 'bg-red-50 text-red-800 border-red-200 dark:bg-red-950/50 dark:text-red-300'
+          }`}>
+            {sessionMsg.text}
+          </div>
+        )}
+
+        <div className="space-y-3">
+          {sessions.length === 0 ? (
+            <div className="p-8 text-center text-xs text-slate-400">
+              {sessionsLoading ? 'Đang tải danh sách thiết bị...' : 'Chưa có thông tin phiên đăng nhập nào.'}
+            </div>
+          ) : (
+            sessions.map((session) => {
+              const isCurrent = session.device_id === currentDeviceId;
+              const isTrusted = session.is_trusted === 1 || session.is_trusted === true;
+              const isActing = sessionActionId === session.id;
+
+              return (
+                <div 
+                  key={session.id}
+                  className={`p-4 rounded-2xl border transition-all flex flex-col sm:flex-row sm:items-center justify-between gap-3.5 ${
+                    isCurrent 
+                      ? 'border-blue-300 dark:border-blue-800 bg-blue-50/40 dark:bg-blue-950/20' 
+                      : 'border-slate-200/80 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/30'
+                  }`}
+                >
+                  <div className="flex items-start space-x-3 min-w-0">
+                    <div className="w-10 h-10 rounded-2xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 flex items-center justify-center flex-shrink-0 mt-0.5 shadow-2xs">
+                      {getDeviceIcon(session.os_name, session.browser_name)}
+                    </div>
+
+                    <div className="min-w-0 space-y-1">
+                      <div className="flex items-center flex-wrap gap-1.5">
+                        <span className="font-extrabold text-xs text-slate-900 dark:text-white truncate">
+                          {session.device_name || `${session.browser_name} trên ${session.os_name}`}
+                        </span>
+
+                        {isCurrent && (
+                          <span className="px-2 py-0.5 rounded-full text-[9px] font-black uppercase bg-blue-600 text-white">
+                            Thiết bị này
+                          </span>
+                        )}
+
+                        {isTrusted ? (
+                          <span className="px-2 py-0.5 rounded-full text-[9px] font-black uppercase bg-emerald-100 text-emerald-800 dark:bg-emerald-950/80 dark:text-emerald-300 inline-flex items-center">
+                            <ShieldCheck className="w-2.5 h-2.5 mr-0.5" /> Tin cậy
+                          </span>
+                        ) : (
+                          <span className="px-2 py-0.5 rounded-full text-[9px] font-bold uppercase bg-slate-200 text-slate-600 dark:bg-slate-700 dark:text-slate-400">
+                            Chưa tin cậy
+                          </span>
+                        )}
+
+                        <span className="inline-flex items-center space-x-1 text-[10px] text-emerald-600 dark:text-emerald-400 font-bold ml-1">
+                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                          <span>Online</span>
+                        </span>
+                      </div>
+
+                      <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-slate-500 dark:text-slate-400">
+                        <span className="inline-flex items-center">
+                          <Globe className="w-3 h-3 mr-1 text-slate-400" />
+                          IP: <code className="font-mono ml-1 font-bold text-slate-700 dark:text-slate-300">{session.ip_address || '127.0.0.1'}</code>
+                        </span>
+                        <span className="inline-flex items-center">
+                          <MapPin className="w-3 h-3 mr-1 text-slate-400" />
+                          {session.location_text || 'Việt Nam'}
+                        </span>
+                        <span className="inline-flex items-center">
+                          <Clock className="w-3 h-3 mr-1 text-slate-400" />
+                          {formatSessionDate(session.last_seen)}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Session Actions */}
+                  <div className="flex items-center space-x-2 flex-shrink-0 pt-2 sm:pt-0 border-t sm:border-t-0 border-slate-200/60 dark:border-slate-700/60">
+                    {!isTrusted && (
+                      <button
+                        type="button"
+                        onClick={() => handleTrustSession(session)}
+                        disabled={isActing}
+                        className="px-3 py-1.5 rounded-xl text-xs font-bold text-emerald-700 dark:text-emerald-300 bg-emerald-100 dark:bg-emerald-950/80 hover:bg-emerald-200 border border-emerald-300 dark:border-emerald-800 transition-all active:scale-95 disabled:opacity-50"
+                      >
+                        Đặt Tin Cậy
+                      </button>
+                    )}
+
+                    <button
+                      type="button"
+                      onClick={() => handleRevokeSession(session)}
+                      disabled={isActing}
+                      className="px-3 py-1.5 rounded-xl text-xs font-bold text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-950/60 hover:bg-red-100 dark:hover:bg-red-900/60 border border-red-200 dark:border-red-800 transition-all active:scale-95 disabled:opacity-50 inline-flex items-center space-x-1"
+                    >
+                      <LogOut className="w-3 h-3" />
+                      <span>{isCurrent ? 'Đăng Xuất' : 'Thu Hồi'}</span>
+                    </button>
+                  </div>
+                </div>
+              );
+            })
+          )}
+        </div>
+      </div>
+
+      {/* ========================================================================= */}
+      {/* 4. GIAO DIỆN HIỂN THỊ (LIGHT / DARK THEMES) */}
+      {/* ========================================================================= */}
       <div className="bg-white dark:bg-slate-900 rounded-3xl p-4 sm:p-6 border border-slate-200/80 dark:border-slate-800 shadow-xs space-y-3.5">
         <div className="flex items-center space-x-2">
           <Sparkles className="w-5 h-5 text-yellow-500" />
@@ -250,10 +855,10 @@ export default function SettingsPage() {
           </h2>
         </div>
         <p className="text-xs text-slate-500 dark:text-slate-400">
-          Lựa chọn chế độ màu sắc phù hợp với sở thích của bạn:
+          Lựa chọn chế độ màu sắc sáng hoặc tối tùy theo nhu cầu sử dụng của bạn:
         </p>
 
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-1">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
           {/* Light Theme */}
           <div
             onClick={() => setTheme('light')}
@@ -303,37 +908,12 @@ export default function SettingsPage() {
               Êm dịu mắt, tiết kiệm pin khi duyệt web vào ban đêm.
             </p>
           </div>
-
-          {/* RGB Theme */}
-          <div
-            onClick={() => setTheme('rgb')}
-            className={`cursor-pointer rounded-2xl p-4 border-2 transition-all relative select-none ${
-              theme === 'rgb'
-                ? 'border-transparent shadow-xl ring-2 ring-purple-500/40 bg-slate-950 text-white rgb-border rgb-glow'
-                : 'border-slate-200 dark:border-slate-800 hover:border-purple-400 dark:hover:border-purple-500 bg-white dark:bg-slate-800/40'
-            }`}
-          >
-            <div className="flex items-center justify-between mb-3">
-              <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-pink-500 via-purple-600 to-cyan-400 text-white flex items-center justify-center shadow-xs">
-                <Sparkles className="w-5 h-5 animate-pulse" />
-              </div>
-              {theme === 'rgb' && (
-                <span className="text-[10px] font-black uppercase bg-gradient-to-r from-pink-500 to-cyan-500 text-white px-2 py-0.5 rounded-full shadow-xs">
-                  RGB NEON
-                </span>
-              )}
-            </div>
-            <h3 className="font-black text-sm rgb-gradient-text">
-              RGB Thanh Niên
-            </h3>
-            <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1">
-              Hiệu ứng viền LED chuyển màu động, phong cách Cyber Gaming!
-            </p>
-          </div>
         </div>
       </div>
 
-      {/* 2. Đổi mật khẩu (Change Password) */}
+      {/* ========================================================================= */}
+      {/* 5. ĐỔI MẬT KHẨU ĐĂNG NHẬP */}
+      {/* ========================================================================= */}
       <div className="bg-white dark:bg-slate-900 rounded-3xl p-4 sm:p-6 border border-slate-200/80 dark:border-slate-800 shadow-xs space-y-3.5">
         <div className="flex items-center space-x-2">
           <KeyRound className="w-5 h-5 text-red-600 dark:text-red-400" />
@@ -360,7 +940,6 @@ export default function SettingsPage() {
         )}
 
         <form onSubmit={handleChangePassword} className="space-y-3.5 max-w-lg">
-          {/* Current Password */}
           <div>
             <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase mb-1">
               Mật khẩu hiện tại:
@@ -384,7 +963,6 @@ export default function SettingsPage() {
             </div>
           </div>
 
-          {/* New Password */}
           <div>
             <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase mb-1">
               Mật khẩu mới:
@@ -408,7 +986,6 @@ export default function SettingsPage() {
             </div>
           </div>
 
-          {/* Confirm New Password */}
           <div>
             <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase mb-1">
               Xác nhận mật khẩu mới:
@@ -444,63 +1021,9 @@ export default function SettingsPage() {
         </form>
       </div>
 
-      {/* 3. Thông tin tài khoản */}
-      <div className="bg-white dark:bg-slate-900 rounded-3xl p-4 sm:p-6 border border-slate-200/80 dark:border-slate-800 shadow-xs space-y-3.5">
-        <div className="flex items-center space-x-2">
-          <User className="w-5 h-5 text-blue-600 dark:text-blue-400" />
-          <h2 className="text-sm sm:text-base font-black text-slate-900 dark:text-white">
-            Thông Tin Tài Khoản
-          </h2>
-        </div>
-
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-1 text-xs">
-          <div className="p-3.5 bg-slate-50 dark:bg-slate-800/50 rounded-2xl border border-slate-200/80 dark:border-slate-700/80">
-            <span className="text-[10px] font-bold uppercase text-slate-400 block">Họ và tên:</span>
-            <span className="text-sm font-extrabold text-slate-900 dark:text-white mt-0.5 block">{user?.full_name}</span>
-          </div>
-
-          <div className="p-3.5 bg-slate-50 dark:bg-slate-800/50 rounded-2xl border border-slate-200/80 dark:border-slate-700/80">
-            <span className="text-[10px] font-bold uppercase text-slate-400 block">Tên đăng nhập:</span>
-            <span className="text-sm font-extrabold text-slate-900 dark:text-white mt-0.5 block">@{user?.username}</span>
-          </div>
-
-          <div className="p-3.5 bg-slate-50 dark:bg-slate-800/50 rounded-2xl border border-slate-200/80 dark:border-slate-700/80">
-            <span className="text-[10px] font-bold uppercase text-slate-400 block">Email liên hệ:</span>
-            <span className="text-xs font-bold text-slate-800 dark:text-slate-200 mt-0.5 block">{user?.email}</span>
-          </div>
-
-          <div className="p-3.5 bg-slate-50 dark:bg-slate-800/50 rounded-2xl border border-slate-200/80 dark:border-slate-700/80">
-            <span className="text-[10px] font-bold uppercase text-slate-400 block">Vai trò:</span>
-            <div className="mt-1 flex items-center space-x-2">
-              <span className="px-2.5 py-0.5 rounded-full text-xs font-black bg-blue-100 dark:bg-blue-900/60 text-blue-700 dark:text-blue-300">
-                {roleText}
-              </span>
-              <DepartmentBadge name={user?.department_name} code={user?.department_code} size="sm" />
-            </div>
-          </div>
-
-          {user?.facebook_url && (
-            <div className="sm:col-span-2 p-3.5 bg-slate-50 dark:bg-slate-800/50 rounded-2xl border border-slate-200/80 dark:border-slate-700/80 flex items-center justify-between gap-3 overflow-hidden min-w-0">
-              <div className="min-w-0 flex-1 overflow-hidden">
-                <span className="text-[10px] font-bold uppercase text-slate-400 block">Facebook liên kết:</span>
-                <p className="text-xs font-semibold text-slate-700 dark:text-slate-300 mt-0.5 truncate select-all" title={user?.facebook_url}>
-                  {user?.facebook_url}
-                </p>
-              </div>
-              <a
-                href={user?.facebook_url}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex-shrink-0 px-3.5 py-1.5 rounded-xl bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400 font-bold text-xs inline-flex items-center hover:underline border border-blue-200/60 dark:border-blue-800/60 shadow-2xs active:scale-95 transition-all"
-              >
-                <ExternalLink className="w-3.5 h-3.5 mr-1" /> Mở
-              </a>
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* Cài đặt Thông Báo Điện Thoại (Web Push) */}
+      {/* ========================================================================= */}
+      {/* 6. THÔNG BÁO ĐẨY ĐIỆN THOẠI (WEB PUSH) */}
+      {/* ========================================================================= */}
       <div className="bg-white dark:bg-slate-900 rounded-3xl p-4 sm:p-6 border border-slate-200/80 dark:border-slate-800 shadow-xs space-y-4">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-100 dark:border-slate-800">
           <div className="flex items-center space-x-2.5">
@@ -562,13 +1085,12 @@ export default function SettingsPage() {
           </div>
         )}
 
-        {/* Detailed role explanation */}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
           <div className="p-3.5 bg-slate-50 dark:bg-slate-800/40 rounded-2xl border border-slate-200/60 dark:border-slate-700/60">
             <span className="text-[10px] font-bold uppercase text-slate-400 block">Quyền lợi nhận thông báo của bạn:</span>
             <p className="text-slate-700 dark:text-slate-300 mt-1 font-medium leading-relaxed">
               {user?.role === 'ADMIN_TONG' && (
-                <>⭐ <b>BCH (Admin Tổng):</b> Nhận thông báo ngay khi có đoàn viên nộp minh chứng bump bài để vào duyệt, nhận thông báo công việc và có quyền phát thông báo toàn đoàn.</>
+                <>⭐ <b>BCH (Admin Tổng):</b> Nhận thông báo ngay khi có đoàn viên nộp minh chứng bump bài để vào duyệt, cảnh báo đăng nhập thiết bị mới và có quyền phát thông báo toàn đoàn.</>
               )}
               {user?.role === 'KIEM_DUYET' && (
                 <>⭐ <b>Người kiểm duyệt:</b> Nhận thông báo tức thì khi có đoàn viên nộp minh chứng bump bài (cả 4 ban), và nhận thông báo khi có nhiệm vụ mới.</>
@@ -591,15 +1113,72 @@ export default function SettingsPage() {
               <p>
                 🔒 <b>Cơ chế thông báo iOS:</b> Khi bạn đang mở app, iOS sẽ không hiện biểu ngữ che màn hình. Hãy <b>khoá màn hình</b> hoặc <b>thoát app</b> trong 3 giây để thấy thông báo xuất hiện trên màn hình khoá!
               </p>
-              <p>
-                ⚙️ <b>Cài đặt iOS:</b> Vào Cài đặt máy &rarr; ConfirmBump &rarr; Thông báo &rarr; đảm bảo đã tích chọn cả <b>Màn hình khoá, Trung tâm thông báo, Biểu ngữ</b> và <b>Âm thanh</b>.
-              </p>
             </div>
           </div>
         </div>
       </div>
 
-      {/* 4. Quản lý Lưu Trữ Đám Mây ImgBB (Dành riêng cho Admin Tổng) */}
+      {/* ========================================================================= */}
+      {/* 7. THÔNG TIN TÀI KHOẢN */}
+      {/* ========================================================================= */}
+      <div className="bg-white dark:bg-slate-900 rounded-3xl p-4 sm:p-6 border border-slate-200/80 dark:border-slate-800 shadow-xs space-y-3.5">
+        <div className="flex items-center space-x-2">
+          <User className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+          <h2 className="text-sm sm:text-base font-black text-slate-900 dark:text-white">
+            Thông Tin Tài Khoản
+          </h2>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-1 text-xs">
+          <div className="p-3.5 bg-slate-50 dark:bg-slate-800/50 rounded-2xl border border-slate-200/80 dark:border-slate-700/80">
+            <span className="text-[10px] font-bold uppercase text-slate-400 block">Họ và tên:</span>
+            <span className="text-sm font-extrabold text-slate-900 dark:text-white mt-0.5 block">{user?.full_name}</span>
+          </div>
+
+          <div className="p-3.5 bg-slate-50 dark:bg-slate-800/50 rounded-2xl border border-slate-200/80 dark:border-slate-700/80">
+            <span className="text-[10px] font-bold uppercase text-slate-400 block">Tên đăng nhập:</span>
+            <span className="text-sm font-extrabold text-slate-900 dark:text-white mt-0.5 block">@{user?.username}</span>
+          </div>
+
+          <div className="p-3.5 bg-slate-50 dark:bg-slate-800/50 rounded-2xl border border-slate-200/80 dark:border-slate-700/80">
+            <span className="text-[10px] font-bold uppercase text-slate-400 block">Email liên hệ:</span>
+            <span className="text-xs font-bold text-slate-800 dark:text-slate-200 mt-0.5 block">{user?.email}</span>
+          </div>
+
+          <div className="p-3.5 bg-slate-50 dark:bg-slate-800/50 rounded-2xl border border-slate-200/80 dark:border-slate-700/80">
+            <span className="text-[10px] font-bold uppercase text-slate-400 block">Vai trò:</span>
+            <div className="mt-1 flex items-center space-x-2">
+              <span className="px-2.5 py-0.5 rounded-full text-xs font-black bg-blue-100 dark:bg-blue-900/60 text-blue-700 dark:text-blue-300">
+                {roleText}
+              </span>
+              <DepartmentBadge name={user?.department_name} code={user?.department_code} size="sm" />
+            </div>
+          </div>
+
+          {user?.facebook_url && (
+            <div className="sm:col-span-2 p-3.5 bg-slate-50 dark:bg-slate-800/50 rounded-2xl border border-slate-200/80 dark:border-slate-700/80 flex items-center justify-between gap-3 overflow-hidden min-w-0">
+              <div className="min-w-0 flex-1 overflow-hidden">
+                <span className="text-[10px] font-bold uppercase text-slate-400 block">Facebook liên kết:</span>
+                <p className="text-xs font-semibold text-slate-700 dark:text-slate-300 mt-0.5 truncate select-all" title={user?.facebook_url}>
+                  {user?.facebook_url}
+                </p>
+              </div>
+              <a
+                href={user?.facebook_url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex-shrink-0 px-3.5 py-1.5 rounded-xl bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400 font-bold text-xs inline-flex items-center hover:underline border border-blue-200/60 dark:border-blue-800/60 shadow-2xs active:scale-95 transition-all"
+              >
+                <ExternalLink className="w-3.5 h-3.5 mr-1" /> Mở
+              </a>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* ========================================================================= */}
+      {/* 8. KHO LƯU TRỮ ẢNH ĐÁM MÂY (IMGBB CLOUD) - CHỈ ADMIN TỔNG */}
+      {/* ========================================================================= */}
       {user?.role === 'ADMIN_TONG' && (
         <div className="bg-white dark:bg-slate-900 rounded-3xl p-4 sm:p-6 border border-slate-200/80 dark:border-slate-800 shadow-xs space-y-4">
           <div className="flex items-center justify-between">
@@ -628,7 +1207,6 @@ export default function SettingsPage() {
             </button>
           </div>
 
-          {/* Current Status Box */}
           <div className={`p-4 rounded-2xl border ${
             storageInfo?.hasKey 
               ? 'bg-emerald-50/70 dark:bg-emerald-950/30 border-emerald-200 dark:border-emerald-800' 
@@ -665,7 +1243,6 @@ export default function SettingsPage() {
               )}
             </div>
 
-            {/* Test Result Message */}
             {storageInfo?.testResult && (
               <div className={`mt-3 p-2.5 rounded-xl text-xs font-semibold border ${
                 storageInfo.testResult.ok 
@@ -688,7 +1265,6 @@ export default function SettingsPage() {
             )}
           </div>
 
-          {/* Setup Guide for Admin */}
           <div className="bg-slate-50 dark:bg-slate-800/40 rounded-2xl p-4 border border-slate-200/80 dark:border-slate-700/80 space-y-3">
             <h3 className="text-xs font-bold uppercase text-slate-700 dark:text-slate-300 flex items-center">
               <UploadCloud className="w-4 h-4 mr-1.5 text-blue-600" />
@@ -755,7 +1331,9 @@ export default function SettingsPage() {
         </div>
       )}
 
-      {/* 5. Vùng nguy hiểm (Danger Zone - Xóa tài khoản) */}
+      {/* ========================================================================= */}
+      {/* 9. VÙNG NGUY HIỂM: XÓA TÀI KHOẢN */}
+      {/* ========================================================================= */}
       <div className="bg-red-50/50 dark:bg-red-950/20 rounded-3xl p-4 sm:p-6 border border-red-200 dark:border-red-900/50 shadow-xs space-y-3">
         <div className="flex items-center space-x-2">
           <Trash2 className="w-5 h-5 text-red-600 dark:text-red-400" />

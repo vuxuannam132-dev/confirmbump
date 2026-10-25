@@ -13,6 +13,7 @@ import PersonalHistoryPage from './pages/PersonalHistoryPage';
 import SettingsPage from './pages/SettingsPage';
 import BroadcastPage from './pages/BroadcastPage';
 import InstallAppModal from './components/InstallAppModal';
+import NotifyPermissionModal from './components/NotifyPermissionModal';
 import { Smartphone } from 'lucide-react';
 
 function AppContent() {
@@ -44,6 +45,7 @@ function AppContent() {
           <LoginPage onNavigateRegister={() => setAuthView('register')} />
         )}
         <InstallAppModal />
+        <NotifyPermissionModal />
       </>
     );
   }
@@ -59,8 +61,8 @@ function AppContent() {
           onOpenInstallAppModal={() => setShowInstallGuide(true)} 
         />
 
-        {/* Main Content Area (padded on left for desktop sidebar) */}
-        <div className="lg:pl-64 flex flex-col min-h-screen">
+        {/* Main Content Area (padded on left for desktop sidebar w-72) */}
+        <div className="lg:pl-72 flex flex-col min-h-screen">
           <main className="max-w-7xl w-full mx-auto px-3 sm:px-6 lg:px-8 py-4 sm:py-8 pb-10 flex-1">
             {activeTab === 'tasks' && <DashboardPage />}
             {activeTab === 'history' && <PersonalHistoryPage />}
@@ -91,6 +93,9 @@ function AppContent() {
         onClose={() => setShowInstallGuide(false)} 
         forceShow={showInstallGuide} 
       />
+
+      {/* Push Notification Permission Popup Modal */}
+      <NotifyPermissionModal />
     </div>
   );
 }

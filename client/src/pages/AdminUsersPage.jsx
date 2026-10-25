@@ -5,6 +5,7 @@ import DepartmentBadge from '../components/DepartmentBadge';
 import CreateUserModal from '../components/CreateUserModal';
 import ChangeDepartmentModal from '../components/ChangeDepartmentModal';
 import ChangeRoleModal from '../components/ChangeRoleModal';
+import UserAvatar from '../components/UserAvatar';
 import { 
   Users, 
   UserCheck, 
@@ -241,8 +242,13 @@ export default function AdminUsersPage() {
                   {pendingUsers.map((p) => (
                     <tr key={p.id} className="hover:bg-slate-50/80 transition-colors">
                       <td className="px-4 py-3.5">
-                        <span className="font-bold text-slate-900 text-sm block">{p.full_name}</span>
-                        <span className="text-[11px] text-slate-400">Đăng ký ngày {new Date(p.created_at).toLocaleDateString('vi-VN')}</span>
+                        <div className="flex items-center space-x-2.5">
+                          <UserAvatar user={p} size="sm" />
+                          <div>
+                            <span className="font-bold text-slate-900 dark:text-white text-sm block">{p.full_name}</span>
+                            <span className="text-[11px] text-slate-400">Đăng ký ngày {new Date(p.created_at).toLocaleDateString('vi-VN')}</span>
+                          </div>
+                        </div>
                       </td>
                       <td className="px-4 py-3.5">
                         <span className="font-semibold text-slate-700">@{p.username}</span>
@@ -349,7 +355,10 @@ export default function AdminUsersPage() {
                   return (
                     <tr key={u.id} className="hover:bg-slate-50/80 dark:hover:bg-slate-800/40 transition-colors">
                       <td className="px-4 py-3.5">
-                        <span className="font-bold text-slate-900 dark:text-white block">{u.full_name}</span>
+                        <div className="flex items-center space-x-2.5">
+                          <UserAvatar user={u} size="sm" />
+                          <span className="font-bold text-slate-900 dark:text-white block">{u.full_name}</span>
+                        </div>
                       </td>
                       <td className="px-4 py-3.5">
                         <span className="font-semibold text-slate-700 dark:text-slate-300">@{u.username}</span>

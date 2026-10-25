@@ -1,16 +1,40 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import api from '../services/api';
-import { Flame, LogIn, UserPlus, AlertCircle, Eye, EyeOff, KeyRound, Send, ArrowLeft, CheckCircle2, Loader2, Sparkles } from 'lucide-react';
+import { 
+  Flame, 
+  LogIn, 
+  UserPlus, 
+  AlertCircle, 
+  Eye, 
+  EyeOff, 
+  KeyRound, 
+  Send, 
+  ArrowLeft, 
+  CheckCircle2, 
+  Loader2, 
+  Sparkles,
+  ShieldCheck,
+  Mail,
+  Smartphone,
+  Check
+} from 'lucide-react';
 
 export default function LoginPage({ onNavigateRegister }) {
-  const { login } = useAuth();
+  const { login, verify2FA } = useAuth();
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [pendingNotice, setPendingNotice] = useState(null);
+
+  // 2FA Challenge State
+  const [twoFactorChallenge, setTwoFactorChallenge] = useState(null);
+  const [twoFactorOtp, setTwoFactorOtp] = useState('');
+  const [trustThisDevice, setTrustThisDevice] = useState(true);
+  const [twoFactorLoading, setTwoFactorLoading] = useState(false);
+  const [twoFactorError, setTwoFactorError] = useState('');
 
   // Forgot Password State
   const [isForgotPassword, setIsForgotPassword] = useState(false);
@@ -47,7 +71,13 @@ export default function LoginPage({ onNavigateRegister }) {
     setPendingNotice(null);
 
     try {
-      await login(username, password);
+      const res = await login(username, password);
+      if (res && res.require2fa) {
+        setTwoFactorChallenge(res);
+        setTwoFactorOtp('');
+        setTwoFactorError('');
+        setTrustThisDevice(true);
+      }
     } catch (err) {
       if (err.response?.data?.status === 'PENDING_APPROVAL') {
         setPendingNotice(err.response.data.message);
@@ -56,6 +86,26 @@ export default function LoginPage({ onNavigateRegister }) {
       }
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleVerify2FA = async (e) => {
+    e.preventDefault();
+    const cleanOtp = twoFactorOtp.replace(/\s+/g, '');
+    if (!cleanOtp || cleanOtp.length !== 9) {
+      setTwoFactorError('Vui lòng nhập đúng và đủ mã xác thực 9 số.');
+      return;
+    }
+
+    setTwoFactorLoading(true);
+    setTwoFactorError('');
+
+    try {
+      await verify2FA(twoFactorChallenge.challenge_token, cleanOtp, trustThisDevice);
+    } catch (err) {
+      setTwoFactorError(err.response?.data?.message || err.message || 'Mã xác thực không hợp lệ hoặc đã hết hạn.');
+    } finally {
+      setTwoFactorLoading(false);
     }
   };
 
@@ -146,7 +196,104 @@ export default function LoginPage({ onNavigateRegister }) {
 
       <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md">
         <div className="bg-white py-8 px-6 sm:px-10 shadow-xl shadow-slate-200/60 rounded-3xl border border-slate-100">
-          {!isForgotPassword ? (
+          {twoFactorChallenge ? (
+            /* 2FA Challenge Form */
+            <form onSubmit={handleVerify2FA} className="space-y-4">
+              <div className="text-center pb-2">
+                <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-blue-600 to-indigo-600 text-white flex items-center justify-center mx-auto mb-2 shadow-md shadow-blue-200">
+                  <ShieldCheck className="w-6 h-6 text-yellow-300" />
+                </div>
+                <h3 className="text-lg font-black text-slate-900">
+                  Xác Thực 2 Lớp (2FA)
+                </h3>
+                <p className="text-xs text-slate-500 font-medium mt-0.5">
+                  Bảo vệ đăng nhập tài khoản Đoàn trường
+                </p>
+              </div>
+
+              {twoFactorError && (
+                <div className="p-3 bg-red-50 text-red-700 text-xs rounded-xl border border-red-200 flex items-start">
+                  <AlertCircle className="w-4 h-4 mr-2 flex-shrink-0 mt-0.5" />
+                  <span>{twoFactorError}</span>
+                </div>
+              )}
+
+              <div className="p-3.5 bg-blue-50/80 rounded-2xl border border-blue-200 text-xs space-y-2">
+                <div className="flex items-start space-x-2 text-blue-900 font-bold">
+                  <Mail className="w-4 h-4 text-blue-600 flex-shrink-0 mt-0.5" />
+                  <span>Mã OTP 9 số đã được gửi qua email:</span>
+                </div>
+                <p className="text-blue-800 font-mono font-bold text-center py-1 bg-white/80 rounded-lg border border-blue-200">
+                  {twoFactorChallenge.email_masked}
+                </p>
+                <p className="text-[11px] text-blue-600">
+                  💡 Vui lòng kiểm tra Hộp thư đến (hoặc hòm thư Rác / Spam). Mã có hiệu lực trong 5 phút.
+                </p>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-700 uppercase mb-1">
+                  Nhập mã xác thực 9 số
+                </label>
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  pattern="[0-9]*"
+                  maxLength={9}
+                  required
+                  autoFocus
+                  value={twoFactorOtp}
+                  onChange={(e) => setTwoFactorOtp(e.target.value.replace(/\D/g, '').slice(0, 9))}
+                  placeholder="000000000"
+                  className="w-full px-4 py-3 rounded-xl border border-slate-200 text-xl font-mono font-black text-center tracking-[0.2em] text-slate-900 focus:ring-2 focus:ring-blue-500 focus:outline-none transition-all placeholder:text-slate-300 placeholder:tracking-normal placeholder:font-sans placeholder:text-sm"
+                />
+              </div>
+
+              <div className="flex items-center space-x-2 p-2.5 bg-slate-50 rounded-xl border border-slate-200/80">
+                <input
+                  type="checkbox"
+                  id="trustDeviceCheck"
+                  checked={trustThisDevice}
+                  onChange={(e) => setTrustThisDevice(e.target.checked)}
+                  className="w-4 h-4 text-blue-600 rounded border-slate-300 focus:ring-blue-500 cursor-pointer"
+                />
+                <label htmlFor="trustDeviceCheck" className="text-xs font-medium text-slate-700 cursor-pointer select-none">
+                  Đặt thiết bị này làm <b>Thiết bị tin cậy</b> (không hỏi lại mã ở lần sau)
+                </label>
+              </div>
+
+              <button
+                type="submit"
+                disabled={twoFactorLoading || twoFactorOtp.length !== 9}
+                className="w-full flex items-center justify-center px-5 py-3.5 rounded-xl text-sm font-bold text-white bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 shadow-lg shadow-blue-200 active:scale-98 transition-all disabled:opacity-50"
+              >
+                {twoFactorLoading ? (
+                  <>
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    <span>Đang xác thực...</span>
+                  </>
+                ) : (
+                  <>
+                    <ShieldCheck className="w-4 h-4 mr-2" />
+                    <span>Xác Thực & Đăng Nhập</span>
+                  </>
+                )}
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setTwoFactorChallenge(null);
+                  setTwoFactorOtp('');
+                  setTwoFactorError('');
+                }}
+                className="w-full text-center text-xs font-bold text-slate-500 hover:text-slate-800 flex items-center justify-center pt-2"
+              >
+                <ArrowLeft className="w-3.5 h-3.5 mr-1" />
+                Quay lại đăng nhập
+              </button>
+            </form>
+          ) : !isForgotPassword ? (
             /* Standard Login Form */
             <form onSubmit={handleSubmit} className="space-y-4">
               {error && (

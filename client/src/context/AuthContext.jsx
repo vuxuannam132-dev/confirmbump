@@ -31,6 +31,9 @@ export function AuthProvider({ children }) {
 
   const login = async (username, password) => {
     const res = await api.post('/auth/login', { username, password });
+    if (res.data.require2fa) {
+      return res.data;
+    }
     if (res.data.success) {
       setToken(res.data.token);
       setUser(res.data.user);
@@ -41,9 +44,33 @@ export function AuthProvider({ children }) {
     throw new Error(res.data.message || 'Đăng nhập thất bại');
   };
 
+  const verify2FA = async (challengeToken, otpCode, trustThisDevice = false) => {
+    const res = await api.post('/auth/2fa/verify', {
+      challenge_token: challengeToken,
+      otp_code: otpCode,
+      trustThisDevice
+    });
+    if (res.data.success) {
+      setToken(res.data.token);
+      setUser(res.data.user);
+      localStorage.setItem('token', res.data.token);
+      localStorage.setItem('user', JSON.stringify(res.data.user));
+      return res.data;
+    }
+    throw new Error(res.data.message || 'Xác thực 2FA thất bại');
+  };
+
   const register = async (registerData) => {
     const res = await api.post('/auth/register', registerData);
     return res.data;
+  };
+
+  const updateUser = (updatedFields) => {
+    setUser((prev) => {
+      const updated = { ...prev, ...updatedFields };
+      localStorage.setItem('user', JSON.stringify(updated));
+      return updated;
+    });
   };
 
   const logout = () => {
@@ -86,6 +113,8 @@ export function AuthProvider({ children }) {
     token,
     loading,
     login,
+    verify2FA,
+    updateUser,
     register,
     logout,
     refreshUser,

@@ -3,6 +3,7 @@ import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
 import DepartmentBadge from './DepartmentBadge';
 import NotificationBell from './NotificationBell';
+import UserAvatar from './UserAvatar';
 import { 
   CheckSquare, 
   ListOrdered, 
@@ -90,9 +91,9 @@ export default function Sidebar({ activeTab, setActiveTab, onOpenInstallAppModal
       {/* ========================================================================= */}
       {/* 1. DESKTOP LEFT SIDEBAR (fixed on large screens) */}
       {/* ========================================================================= */}
-      <aside className="hidden lg:flex flex-col w-64 fixed inset-y-0 left-0 bg-white dark:bg-slate-900 border-r border-slate-200/90 dark:border-slate-800 z-40 select-none transition-colors">
+      <aside className="hidden lg:flex flex-col w-72 fixed inset-y-0 left-0 bg-white dark:bg-slate-900 border-r border-slate-200/90 dark:border-slate-800 z-40 select-none transition-colors">
         {/* Top Logo & System Brand */}
-        <div className="p-3 border-b border-slate-100 dark:border-slate-800/80 flex items-center gap-2">
+        <div className="p-3.5 border-b border-slate-100 dark:border-slate-800/80 flex items-center justify-between gap-2">
           <div 
             onClick={() => handleNavClick('tasks')}
             className="cursor-pointer flex items-center space-x-2 group min-w-0 flex-1"
@@ -120,9 +121,7 @@ export default function Sidebar({ activeTab, setActiveTab, onOpenInstallAppModal
         <div className="p-4 border-b border-slate-100 dark:border-slate-800/80 bg-slate-50/60 dark:bg-slate-800/30">
           <div className="flex items-center space-x-3">
             {/* Avatar Circle */}
-            <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-blue-600 to-indigo-600 text-white font-black text-sm flex items-center justify-center shadow-xs flex-shrink-0">
-              {user.full_name ? user.full_name.charAt(0).toUpperCase() : 'U'}
-            </div>
+            <UserAvatar user={user} size="md" />
             <div className="truncate flex-1">
               <div className="flex items-center justify-between">
                 <span className="text-xs font-black text-slate-900 dark:text-white truncate block" title={user.full_name}>
@@ -310,9 +309,7 @@ export default function Sidebar({ activeTab, setActiveTab, onOpenInstallAppModal
               {/* Mobile User Card */}
               <div className="mt-4 p-3 bg-slate-50 dark:bg-slate-800/50 rounded-2xl border border-slate-200/80 dark:border-slate-700/80 space-y-2">
                 <div className="flex items-center space-x-2.5">
-                  <div className="w-8 h-8 rounded-xl bg-blue-600 text-white font-black text-xs flex items-center justify-center">
-                    {user.full_name ? user.full_name.charAt(0).toUpperCase() : 'U'}
-                  </div>
+                  <UserAvatar user={user} size="sm" />
                   <div className="truncate">
                     <span className="text-xs font-black text-slate-900 dark:text-white block truncate">
                       {user.full_name}
