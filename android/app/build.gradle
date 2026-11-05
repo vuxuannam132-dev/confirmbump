@@ -14,19 +14,10 @@ android {
         versionName "1.0.1"
     }
 
-    signingConfigs {
-        release {
-            storeFile file("confirmbump.keystore")
-            storePassword "confirmbump123"
-            keyAlias "confirmbump"
-            keyPassword "confirmbump123"
-        }
-    }
-
     buildTypes {
         release {
             minifyEnabled false
-            signingConfig signingConfigs.release
+            signingConfig signingConfigs.debug
         }
     }
 
