@@ -17,6 +17,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Set up Java 17
         uses: actions/setup-java@v4
@@ -44,21 +45,19 @@ jobs:
           cd android
           gradle assembleRelease --stacktrace 2>&1 | tee ../build.log
 
-      - name: Commit Error Log on Failure
-        if: failure()
-        run: |
-          tail -n 60 build.log > android_build_error.txt
-          git config --global user.name "github-actions[bot]"
-          git config --global user.email "github-actions[bot]@users.noreply.github.com"
-          git add android_build_error.txt
-          git commit -m "ci: capture android build error [skip ci]" || true
-          git push origin main || true
-
       - name: Prepare APK Output
         run: |
           mkdir -p output
-          cp android/app/build/outputs/apk/release/*.apk output/ConfirmBump-DoanTruong.apk
-          ls -lh output/
+          echo "Finding all APKs generated:"
+          find android -name "*.apk"
+          APK_PATH=$(find android -name "*.apk" | head -n 1)
+          if [ -z "$APK_PATH" ]; then
+            echo "ERROR: No APK found!"
+            exit 1
+          fi
+          echo "Using APK: $APK_PATH"
+          cp "$APK_PATH" output/ConfirmBump-DoanTruong.apk
+          ls -lh output/ConfirmBump-DoanTruong.apk
 
       - name: Upload APK Artifact
         uses: actions/upload-artifact@v4
