@@ -5,6 +5,9 @@ on:
     branches: [ main ]
   workflow_dispatch:
 
+permissions:
+  contents: write
+
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -12,6 +15,9 @@ jobs:
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Set up Java 17
         uses: actions/setup-java@v4
@@ -21,26 +27,53 @@ jobs:
 
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v3
+        with:
+          gradle-version: '8.5'
 
       - name: Build APK with Gradle
         run: |
           cd android
-          chmod +x ./gradlew || gradle wrapper
-          ./gradlew assembleRelease --stacktrace || gradle assembleRelease
+          gradle assembleRelease --stacktrace
+
+      - name: Prepare APK Output
+        run: |
+          mkdir -p output
+          cp android/app/build/outputs/apk/release/*.apk output/ConfirmBump-DoanTruong.apk
+          ls -lh output/
 
       - name: Upload APK Artifact
         uses: actions/upload-artifact@v4
         with:
           name: ConfirmBump-DoanTruong-Release-APK
-          path: android/app/build/outputs/apk/release/*.apk
+          path: output/ConfirmBump-DoanTruong.apk
 
-      - name: Create GitHub Release
-        uses: softprops/action-gh-release@v1
-        if: startsWith(github.ref, 'refs/tags/') || github.ref == 'refs/heads/main'
+      - name: Publish GitHub Release
+        uses: softprops/action-gh-release@v2
+        if: github.ref == 'refs/heads/main'
         with:
-          tag_name: v1.0.0-apk
-          name: "ConfirmBump Android APK v1.0.0"
-          body: "Bản cài đặt ứng dụng Android (.apk) chính thức cho Hệ Thống Confirm Bump Đoàn Trường."
-          files: android/app/build/outputs/apk/release/*.apk
+          tag_name: latest-apk
+          name: "ConfirmBump Android App (Bản APK Mới Nhất)"
+          body: |
+            ## 📱 Ứng Dụng Đoàn Trường Confirm Bump (Android APK)
+            - **Phiên bản**: v1.0.1
+            - **Hệ thống**: Tự động đồng bộ với web https://confirmbump.vercel.app
+            - **Tính năng**: Đầy đủ tính năng nộp minh chứng, duyệt bài, thông báo đẩy, vuốt làm mới, tự ghi nhớ đăng nhập.
+          files: output/ConfirmBump-DoanTruong.apk
+          make_latest: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Update APK in Web Public Downloads
+        if: github.ref == 'refs/heads/main'
+        run: |
+          mkdir -p client/public/downloads
+          cp output/ConfirmBump-DoanTruong.apk client/public/downloads/ConfirmBump-DoanTruong.apk
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          git add client/public/downloads/ConfirmBump-DoanTruong.apk
+          if ! git diff --staged --quiet; then
+            git commit -m "chore(apk): update latest compiled Android APK binary [skip ci]"
+            git push origin main
+          else
+            echo "No changes in APK binary"
+          fi

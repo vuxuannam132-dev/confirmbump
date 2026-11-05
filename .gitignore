@@ -10,3 +10,7 @@ server/uploads/*
 *.sqlite-journal
 client/dist
 .DS_Store
+.gradle
+android/.gradle
+android/**/build/
+android/app/build/
