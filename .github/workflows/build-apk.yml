@@ -24,8 +24,15 @@ jobs:
           distribution: 'temurin'
           java-version: '17'
 
-      - name: Setup Android SDK
-        uses: android-actions/setup-android@v3
+      - name: Set up Android SDK
+        run: |
+          echo "ANDROID_HOME=/usr/local/lib/android/sdk" >> $GITHUB_ENV
+          echo "ANDROID_SDK_ROOT=/usr/local/lib/android/sdk" >> $GITHUB_ENV
+          echo "/usr/local/lib/android/sdk/cmdline-tools/latest/bin" >> $GITHUB_PATH
+          echo "/usr/local/lib/android/sdk/platform-tools" >> $GITHUB_PATH
+          mkdir -p android
+          echo "sdk.dir=/usr/local/lib/android/sdk" > android/local.properties
+          yes | /usr/local/lib/android/sdk/cmdline-tools/latest/bin/sdkmanager --licenses || true
 
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v3
@@ -35,7 +42,17 @@ jobs:
       - name: Build APK with Gradle
         run: |
           cd android
-          gradle assembleRelease --stacktrace
+          gradle assembleRelease --stacktrace 2>&1 | tee ../build.log
+
+      - name: Commit Error Log on Failure
+        if: failure()
+        run: |
+          tail -n 60 build.log > android_build_error.txt
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          git add android_build_error.txt
+          git commit -m "ci: capture android build error [skip ci]" || true
+          git push origin main || true
 
       - name: Prepare APK Output
         run: |
