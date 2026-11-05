@@ -35,6 +35,13 @@ jobs:
           echo "sdk.dir=/usr/local/lib/android/sdk" > android/local.properties
           yes | /usr/local/lib/android/sdk/cmdline-tools/latest/bin/sdkmanager --licenses || true
 
+      - name: Generate Release Keystore
+        run: |
+          keytool -genkeypair -v -keystore android/app/confirmbump.keystore \
+            -alias confirmbump -keyalg RSA -keysize 2048 -validity 10000 \
+            -storepass confirmbump123 -keypass confirmbump123 \
+            -dname "CN=DoanTruong, OU=Bump, O=DoanTruong, C=VN"
+
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v3
         with:
@@ -43,12 +50,22 @@ jobs:
       - name: Build APK with Gradle
         run: |
           cd android
-          gradle assembleRelease --stacktrace 2>&1 | tee ../build.log
+          gradle assembleRelease --stacktrace > ../build.log 2>&1 || (cat ../build.log | tail -n 80 && exit 1)
+
+      - name: Commit Error Log on Failure
+        if: failure()
+        run: |
+          tail -n 80 build.log > android_build_error.txt 2>/dev/null || true
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          git add android_build_error.txt || true
+          git commit -m "ci: capture android build error [skip ci]" || true
+          git push origin main || true
 
       - name: Prepare APK Output
         run: |
           mkdir -p output
-          echo "Finding all APKs generated:"
+          echo "Searching for APKs:"
           find android -name "*.apk"
           APK_PATH=$(find android -name "*.apk" | head -n 1)
           if [ -z "$APK_PATH" ]; then
